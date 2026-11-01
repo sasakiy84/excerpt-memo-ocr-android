@@ -83,7 +83,7 @@ public final class MainActivityHostTest {
         var icon = (android.graphics.drawable.AdaptiveIconDrawable) androidx.core.content.ContextCompat.getDrawable(activity, R.mipmap.ic_launcher);
         File directory = new File("build/reports/ui");
         if (!directory.isDirectory() && !directory.mkdirs()) throw new java.io.IOException("Cannot create icon preview directory");
-        for (int size : new int[]{512, 144}) {
+        for (int size : new int[]{512, 144, 48}) {
             Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
             icon.setBounds(0, 0, size, size); icon.draw(new Canvas(bitmap));
             try (FileOutputStream output = new FileOutputStream(new File(directory, "icon-" + size + ".png"))) {

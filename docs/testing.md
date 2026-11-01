@@ -33,7 +33,7 @@ python3 scripts/run-device-tests.py
 ## リリース APK
 
 ```sh
-python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.4.0
+python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.4.1
 "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
 "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 app/build/outputs/apk/release/app-release.apk
 ```
@@ -102,3 +102,12 @@ python3 scripts/run-device-tests.py --class-name com.sasakiy84.excerptmemo.Docum
 - Android 16 の操作テスト 1 件: 成功。ドロワーを 100 px 引き上げて指定通りの高さになること、文字選択・テキスト切替・コピー・画面再作成時の高さ保持と画像編集の取消を確認。
 - debug / release lint、署名付き APK、モデル・署名証明書・16 KB アラインメントの検査: 成功。
 - Android エミュレーターで縦長の資料を表示し、通常の高さと大きく引き上げた状態を撮影。コピー操作の表示と文章の折り返しを確認。
+
+## 0.4.1 の名称とアイコン
+
+- アプリ名を「方解抄」に変更し、リリース名と README に反映。
+- 乳白色 `#F7F4ED` と琥珀色 `#B67A32` の 2 色で Adaptive Icon を構成。縦の形を途中で分断せず、行間に沿う劈開をベクターで表す。
+- 前景を 108 dp の中央に配置し、通常・丸型・monochrome レイヤーに同じ形を使用。
+- ローカルのホストテスト 46 件と debug / release lint: 成功。512 / 144 / 48 px とテーマアイコンの描画を確認。
+- Android 16 エミュレーターに更新 APK をインストールし、ホーム画面とアプリ一覧で丸型アイコンと「方解抄」の表示を確認。
+- モデル、APK メタデータ・アプリラベル、署名証明書、16 KB アラインメントの検査: 成功。

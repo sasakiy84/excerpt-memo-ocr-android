@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">抜粋</string>
+    <string name="app_name">方解抄</string>
     <string name="camera">撮影</string>
     <string name="capture">シャッター</string>
     <string name="import_image">画像を開く</string>

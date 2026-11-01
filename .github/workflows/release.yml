@@ -54,7 +54,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release create "$RELEASE_TAG" dist/*.apk dist/SHA256SUMS --verify-tag --title "抜粋 $RELEASE_TAG" --notes-file docs/release-notes.md
+        run: gh release create "$RELEASE_TAG" dist/*.apk dist/SHA256SUMS --verify-tag --title "方解抄 $RELEASE_TAG" --notes-file docs/release-notes.md
       - name: Remove signing material
         if: always()
         run: rm -f "$RUNNER_TEMP/release.jks"
