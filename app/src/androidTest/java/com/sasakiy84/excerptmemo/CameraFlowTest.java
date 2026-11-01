@@ -43,7 +43,7 @@ public final class CameraFlowTest {
             instrumentation.runOnMainSync(() -> activity.findViewById(R.id.shutter).performClick());
             waitFor(instrumentation, () -> {
                 DocumentViewModel model = new ViewModelProvider(activity).get(DocumentViewModel.class);
-                return model.page != null && !model.busy;
+                return model.page != null;
             });
             DocumentUiTest.screenshot(context, "test-camera-page.png");
             instrumentation.runOnMainSync(() -> {
@@ -51,6 +51,11 @@ public final class CameraFlowTest {
                 DocumentViewModel model = new ViewModelProvider(activity).get(DocumentViewModel.class);
                 assertThat(Math.max(model.page.getWidth(), model.page.getHeight())).isGreaterThan(500);
                 assertThat(Math.max(model.page.getWidth(), model.page.getHeight())).isAtMost(2800);
+                if (model.busy) {
+                    activity.getOnBackPressedDispatcher().onBackPressed();
+                    assertThat(model.busy).isFalse();
+                    assertThat(model.page).isNotNull();
+                }
                 activity.getOnBackPressedDispatcher().onBackPressed();
                 assertThat(activity.findViewById(R.id.camera_panel).getVisibility()).isEqualTo(View.VISIBLE);
                 activity.finish();

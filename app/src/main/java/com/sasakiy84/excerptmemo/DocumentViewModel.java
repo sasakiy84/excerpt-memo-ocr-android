@@ -18,9 +18,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -31,9 +29,12 @@ public final class DocumentViewModel extends AndroidViewModel {
     public final MutableLiveData<Integer> changes = new MutableLiveData<>(0);
     public Bitmap page;
     public List<OcrLine> lines = List.of();
-    public Set<Integer> selected = new HashSet<>();
-    public Rect region = new Rect();
+    public List<OcrLine> allLines = List.of();
+    private TextGeometry cachedGeometry = new TextGeometry(lines);
+    public int selectionStart, selectionEnd;
+    public boolean includePageNumbers, includeRuby, includeTables;
     public String text = "", status = "";
+    private int[] textOrigins = new int[0];
     public boolean busy, textMode;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -42,6 +43,10 @@ public final class DocumentViewModel extends AndroidViewModel {
 
     public DocumentViewModel(Application application) {
         super(application);
+        var preferences = application.getSharedPreferences("extraction", 0);
+        includePageNumbers = preferences.getBoolean("pageNumbers", false);
+        includeRuby = preferences.getBoolean("ruby", false);
+        includeTables = preferences.getBoolean("tables", false);
         busy = true;
         worker.execute(() -> {
             try {
@@ -55,20 +60,24 @@ public final class DocumentViewModel extends AndroidViewModel {
                     for (int i = 0; i < array.length(); i++) {
                         JSONArray line = array.getJSONArray(i);
                         restoredLines.add(new OcrLine((float) line.getDouble(0), (float) line.getDouble(1),
-                                (float) line.getDouble(2), (float) line.getDouble(3), line.getString(4)));
+                                (float) line.getDouble(2), (float) line.getDouble(3), line.getString(4),
+                                OcrLine.Kind.valueOf(line.optString(5, "TEXT"))));
                     }
                     main.post(() -> {
-                        page = restored; lines = restoredLines;
-                        region = new Rect(0, 0, page.getWidth(), page.getHeight());
-                        selectAllLines();
-                        JSONArray selection = json.optJSONArray("selected");
-                        if (selection != null) {
-                            selected.clear();
-                            for (int i = 0; i < selection.length(); i++) selected.add(selection.optInt(i));
+                        page = restored; allLines = restoredLines;
+                        rebuildLines(false);
+                        if (json.has("selectionStart")) {
+                            TextGeometry geometry = geometry();
+                            selectionStart = geometry.snap(json.optInt("selectionStart"), false);
+                            selectionEnd = Math.max(selectionStart, geometry.snap(json.optInt("selectionEnd"), true));
                         }
-                        JSONArray bounds = json.optJSONArray("region");
-                        if (bounds != null && bounds.length() == 4) region = new Rect(bounds.optInt(0), bounds.optInt(1), bounds.optInt(2), bounds.optInt(3));
-                        text = json.optString("text", ReadingOrder.text(lines));
+                        text = json.optString("text", geometry().text.substring(selectionStart, selectionEnd));
+                        resetTextOrigins();
+                        JSONArray origins = json.optJSONArray("textOrigins");
+                        if (origins != null && origins.length() == text.length()) {
+                            textOrigins = new int[text.length()];
+                            for (int i = 0; i < textOrigins.length; i++) textOrigins[i] = origins.optInt(i, -1);
+                        }
                         textMode = json.optBoolean("textMode");
                         busy = false; changed();
                     });
@@ -105,9 +114,8 @@ public final class DocumentViewModel extends AndroidViewModel {
                 writeImage(decoded);
                 main.post(() -> {
                     if (token.get()) return;
-                    page = decoded; lines = List.of(); selected.clear(); text = ""; textMode = false;
-                    region = new Rect(0, 0, page.getWidth(), page.getHeight());
-                    status = ""; busy = false; changed(); save();
+                    page = decoded; allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false;
+                    status = ""; busy = false; changed(); save(); read();
                 });
             } catch (Exception | OutOfMemoryError exception) {
                 Log.e("ExcerptMemo", "Image decoding failed", exception);
@@ -137,9 +145,8 @@ public final class DocumentViewModel extends AndroidViewModel {
                 writeImage(rotated);
                 main.post(() -> {
                     if (token.get()) return;
-                    page = rotated; lines = List.of(); selected.clear(); text = ""; textMode = false;
-                    region = new Rect(0, 0, page.getWidth(), page.getHeight());
-                    busy = false; status = ""; changed(); save();
+                    page = rotated; allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false;
+                    busy = false; status = ""; changed(); save(); read();
                 });
             } catch (Exception | OutOfMemoryError exception) {
                 Log.e("ExcerptMemo", "Rotation failed", exception);
@@ -151,7 +158,7 @@ public final class DocumentViewModel extends AndroidViewModel {
     public void read() {
         if (busy || page == null) return;
         AtomicBoolean token = new AtomicBoolean(); cancellation = token;
-        Rect crop = new Rect(region);
+        Rect crop = new Rect(0, 0, page.getWidth(), page.getHeight());
         if (!crop.intersect(0, 0, page.getWidth(), page.getHeight()) || crop.width() < 2 || crop.height() < 2) return;
         Bitmap source = page;
         busy = true; status = getApplication().getString(R.string.loading_model); changed();
@@ -166,7 +173,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                 }));
                 main.post(() -> {
                     if (token.get()) return;
-                    lines = recognized; selectAllLines(); text = ReadingOrder.text(lines);
+                    allLines = recognized; rebuildLines(false);
                     status = lines.isEmpty() ? getApplication().getString(R.string.empty_result) : "";
                     busy = false; changed(); save();
                 });
@@ -186,37 +193,124 @@ public final class DocumentViewModel extends AndroidViewModel {
 
     public void cancel() { cancellation.set(true); busy = false; status = ""; changed(); }
 
-    public void select(Rect selection, Set<Integer> indices) {
+    public void select(int start, int end) {
         if (busy) return;
-        region = selection; selected = new HashSet<>(indices);
-        List<OcrLine> chosen = new ArrayList<>();
-        for (int i = 0; i < lines.size(); i++) if (selected.contains(i)) chosen.add(lines.get(i));
-        text = ReadingOrder.text(chosen);
+        TextGeometry geometry = geometry();
+        selectionStart = geometry.snap(Math.min(start, end), false);
+        selectionEnd = geometry.snap(Math.max(start, end), true);
+        text = geometry.text.substring(selectionStart, selectionEnd);
+        resetTextOrigins();
+        changed();
+    }
+
+    public void setInclusions(boolean pageNumbers, boolean ruby, boolean tables) {
+        if (busy) return;
+        includePageNumbers = pageNumbers; includeRuby = ruby; includeTables = tables;
+        getApplication().getSharedPreferences("extraction", 0).edit()
+                .putBoolean("pageNumbers", pageNumbers).putBoolean("ruby", ruby).putBoolean("tables", tables).apply();
+        rebuildLines(true);
+        status = lines.isEmpty() ? getApplication().getString(R.string.empty_result) : "";
         changed(); save();
     }
 
-    private void selectAllLines() {
-        selected = new HashSet<>();
-        for (int i = 0; i < lines.size(); i++) selected.add(i);
+    private void rebuildLines(boolean preserve) {
+        List<OcrLine> previous = lines;
+        TextGeometry old = geometry();
+        int oldStart = selectionStart, oldEnd = selectionEnd;
+        boolean all = !preserve || (oldStart == 0 && oldEnd == old.length());
+        List<OcrLine> visible = new ArrayList<>();
+        for (OcrLine line : allLines) {
+            if (line.kind() == OcrLine.Kind.PAGE_NUMBER && !includePageNumbers) continue;
+            if (line.kind() == OcrLine.Kind.RUBY && !includeRuby) continue;
+            if (line.kind() == OcrLine.Kind.TABLE && !includeTables) continue;
+            visible.add(line);
+        }
+        lines = new PageReferences(allLines, page == null ? 1 : page.getWidth()).order(visible);
+        TextGeometry geometry = geometry();
+        selectionStart = 0; selectionEnd = all ? geometry.length() : 0;
+        if (!all) {
+            boolean found = false;
+            for (int i = 0; i < lines.size(); i++) {
+                int previousIndex = previous.indexOf(lines.get(i));
+                if (previousIndex < 0) continue;
+                int from = Math.max(0, oldStart - old.starts[previousIndex]);
+                int to = Math.min(lines.get(i).text().length(), oldEnd - old.starts[previousIndex]);
+                if (from >= to) continue;
+                if (!found) { selectionStart = geometry.starts[i] + from; found = true; }
+                selectionEnd = geometry.starts[i] + to;
+            }
+        }
+        text = geometry.text.substring(selectionStart, selectionEnd);
+        resetTextOrigins();
     }
 
-    public void closePage() {
+    private TextGeometry geometry() {
+        if (cachedGeometry.lines != lines) cachedGeometry = new TextGeometry(lines);
+        return cachedGeometry;
+    }
+
+    private void resetTextOrigins() {
+        textOrigins = new int[text.length()];
+        for (int i = 0; i < text.length(); i++) textOrigins[i] = selectionStart + Math.min(i, Math.max(0, selectionEnd - selectionStart - 1));
+    }
+
+    // Keep source positions through OCR corrections so a later text selection still
+    // refers to the correct side of a spread, even after insertions or deletions.
+    public void editText(String value, int start, int before, int count) {
+        if (textOrigins != null && textOrigins.length == text.length() && start >= 0 && before >= 0 && count >= 0
+                && start + before <= text.length() && value.length() == text.length() - before + count) {
+            int[] mapped = new int[value.length()];
+            System.arraycopy(textOrigins, 0, mapped, 0, start);
+            int a = textOrigins.length == 0 ? selectionStart : textOrigins[Math.min(start, textOrigins.length - 1)];
+            int b = before == 0 ? a : textOrigins[start + before - 1];
+            for (int i = 0; i < count; i++) mapped[start + i] = count <= 1 ? a : a + (b - a) * i / (count - 1);
+            System.arraycopy(textOrigins, start + before, mapped, start + count, text.length() - start - before);
+            textOrigins = mapped;
+        } else textOrigins = null;
+        text = value;
+    }
+
+    public String forClipboard(int localStart, int localEnd) {
+        int from = Math.max(0, Math.min(text.length(), Math.min(localStart, localEnd)));
+        int to = Math.max(from, Math.min(text.length(), Math.max(localStart, localEnd)));
+        if (from == to) { from = 0; to = text.length(); }
+        String copied = text.substring(from, to);
+        if (copied.isBlank()) return copied;
+        TextGeometry geometry = geometry();
+        int start = selectionStart, end = selectionEnd;
+        if (textOrigins != null && textOrigins.length == text.length()) {
+            start = geometry.length(); end = 0;
+            for (int i = from; i < to; i++) {
+                int origin = textOrigins[i];
+                if (origin >= 0 && origin < geometry.length()) { start = Math.min(start, origin); end = Math.max(end, origin + 1); }
+            }
+        } else if (text.equals(geometry.text.substring(start, end))) { start += from; end = selectionStart + to; }
+        List<OcrLine> chosen = new ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) {
+            if (geometry.starts[i] < end && geometry.starts[i] + lines.get(i).text().length() > start) chosen.add(lines.get(i));
+        }
+        return copied + new PageReferences(allLines, page == null ? 1 : page.getWidth()).suffix(chosen);
+    }
+
+    public java.util.concurrent.Future<?> closePage() {
         cancel();
-        page = null; lines = List.of(); selected.clear(); text = ""; textMode = false; changed();
-        worker.execute(() -> { new AtomicFile(imageFile()).delete(); new AtomicFile(stateFile()).delete(); });
+        page = null; allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false; changed();
+        return worker.submit(() -> { new AtomicFile(imageFile()).delete(); new AtomicFile(stateFile()).delete(); });
     }
 
     public void save() {
         if (page == null) return;
         try {
             JSONArray array = new JSONArray();
-            for (OcrLine line : lines) array.put(new JSONArray().put(line.left()).put(line.top()).put(line.right()).put(line.bottom()).put(line.text()));
-            JSONArray selection = new JSONArray();
-            for (int index : selected) selection.put(index);
-            JSONArray bounds = new JSONArray().put(region.left).put(region.top).put(region.right).put(region.bottom);
-            byte[] json = new JSONObject().put("lines", array).put("text", text).put("textMode", textMode)
-                    .put("selected", selection).put("region", bounds)
-                    .toString().getBytes(StandardCharsets.UTF_8);
+            for (OcrLine line : allLines) array.put(new JSONArray().put(line.left()).put(line.top()).put(line.right()).put(line.bottom()).put(line.text()).put(line.kind().name()));
+            JSONObject state = new JSONObject().put("lines", array).put("text", text).put("textMode", textMode)
+                    .put("selectionStart", selectionStart).put("selectionEnd", selectionEnd);
+            if (textOrigins != null) {
+                JSONArray origins = new JSONArray();
+                for (int origin : textOrigins) origins.put(origin);
+                state.put("textOrigins", origins);
+            }
+            byte[] json = state.toString().getBytes(StandardCharsets.UTF_8);
             worker.execute(() -> {
                 AtomicFile target = new AtomicFile(stateFile());
                 FileOutputStream stream = null;

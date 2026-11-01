@@ -98,13 +98,21 @@ public final class MainActivity extends AppCompatActivity {
         preview = findViewById(R.id.preview);
         preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
         pageView = findViewById(R.id.page_view);
-        pageView.setSelectionListener((region, selected) -> document.select(region, selected));
+        pageView.setSelectionListener((start, end) -> document.select(start, end));
+        for (int id : new int[]{R.id.include_page_numbers, R.id.include_ruby, R.id.include_tables}) {
+            ((android.widget.CompoundButton) findViewById(id)).setOnCheckedChangeListener((button, checked) -> {
+                if (updatingText) return;
+                document.setInclusions(((android.widget.CompoundButton) findViewById(R.id.include_page_numbers)).isChecked(),
+                        ((android.widget.CompoundButton) findViewById(R.id.include_ruby)).isChecked(),
+                        ((android.widget.CompoundButton) findViewById(R.id.include_tables)).isChecked());
+            });
+        }
         resultText = findViewById(R.id.result_text);
         resultText.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence value, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence value, int start, int before, int count) {
                 if (!updatingText) {
-                    document.text = value.toString();
+                    document.editText(value.toString(), start, before, count);
                     findViewById(R.id.copy_button).setEnabled(!document.busy && !value.toString().isBlank());
                 }
             }
@@ -147,6 +155,7 @@ public final class MainActivity extends AppCompatActivity {
     private void render() {
         if (isDestroyed()) return;
         boolean hasPage = document.page != null;
+        findViewById(R.id.root).setKeepScreenOn(!hasPage || document.busy);
         findViewById(R.id.camera_panel).setVisibility(hasPage ? View.GONE : View.VISIBLE);
         findViewById(R.id.document_panel).setVisibility(hasPage ? View.VISIBLE : View.GONE);
         back.setEnabled(hasPage || document.busy);
@@ -157,7 +166,15 @@ public final class MainActivity extends AppCompatActivity {
         findViewById(R.id.import_button).setEnabled(!document.busy && !capturing);
         if (hasPage) {
             stopCamera();
-            pageView.setPage(document.page, document.lines, document.selected, document.region);
+            pageView.setPage(document.page, document.lines, document.selectionStart, document.selectionEnd);
+            updatingText = true;
+            int[] filterIds = {R.id.include_page_numbers, R.id.include_ruby, R.id.include_tables};
+            boolean[] inclusions = {document.includePageNumbers, document.includeRuby, document.includeTables};
+            for (int i = 0; i < filterIds.length; i++) {
+                android.widget.CompoundButton filter = findViewById(filterIds[i]);
+                filter.setChecked(inclusions[i]); filter.setEnabled(!document.busy);
+            }
+            updatingText = false;
             pageView.setEnabled(!document.busy);
             pageView.setVisibility(document.textMode ? View.GONE : View.VISIBLE);
             boolean hasText = !document.lines.isEmpty() || !document.text.isEmpty();
@@ -266,9 +283,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void copy() {
-        String text = resultText.getText().toString();
-        int start = resultText.getSelectionStart(), end = resultText.getSelectionEnd();
-        if (start >= 0 && end >= 0 && end != start) text = text.substring(Math.min(start, end), Math.max(start, end));
+        String text = document.forClipboard(resultText.getSelectionStart(), resultText.getSelectionEnd());
         if (!text.isBlank()) getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText(getString(R.string.app_name), text));
     }
 

@@ -1,6 +1,8 @@
 # 抜粋
 
-Android スマホで資料を撮影し、文字を選んでコピーするアプリです。NDLOCR-Lite の ONNX モデルを同梱し、端末内で処理します。
+Android スマホで資料を撮影すると自動で読み取り、文字を選んでコピーするアプリです。NDLOCR-Lite の ONNX モデルを同梱し、端末内で処理します。
+
+画像上の開始・終了ハンドルで抜粋範囲を指定できます。ページ番号・ルビ・表は初期設定では除外し、抜粋画面のチェックボックスで切り替えます。コピー時には、識別できたページ番号を引用末尾へ付けます。
 
 [最新版の APK](https://github.com/sasakiy84/excerpt-memo-ocr-android/releases/latest) · Android 16 以上
 

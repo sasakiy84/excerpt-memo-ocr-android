@@ -1,6 +1,10 @@
 package com.sasakiy84.excerptmemo;
 
-public record OcrLine(float left, float top, float right, float bottom, String text) {
+public record OcrLine(float left, float top, float right, float bottom, String text, Kind kind) {
+    public enum Kind { TEXT, PAGE_NUMBER, RUBY, TABLE }
+    public OcrLine(float left, float top, float right, float bottom, String text) {
+        this(left, top, right, bottom, text, Kind.TEXT);
+    }
     public boolean vertical() { return bottom - top > (right - left) * 1.2f; }
     public float centerX() { return (left + right) / 2; }
     public float centerY() { return (top + bottom) / 2; }

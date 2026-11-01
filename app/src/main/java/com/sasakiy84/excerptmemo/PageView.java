@@ -6,29 +6,29 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PointF;
-import android.graphics.Rect;
 import android.graphics.RectF;
+import android.os.Bundle;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
-import java.util.HashSet;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.Magnifier;
 import java.util.List;
-import java.util.Set;
 
-/** One-finger rectangle selection, line toggles, and two-finger zoom/pan in page coordinates. */
+/** Grapheme selection handles over the photograph, with two-finger zoom and pan. */
 public final class PageView extends View {
-    public interface SelectionListener { void changed(Rect region, Set<Integer> selected); }
+    public interface SelectionListener { void changed(int start, int end); }
     private Bitmap bitmap;
-    private List<OcrLine> lines = List.of();
-    private final Set<Integer> selected = new HashSet<>();
-    private final RectF region = new RectF();
+    private TextGeometry geometry = new TextGeometry(List.of());
+    private int selectionStart, selectionEnd;
     private SelectionListener listener;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
-    private float zoom = 1, panX, panY, startX, startY, downX, downY, lastFocusX, lastFocusY;
-    private boolean multiplePointers, dragged, lineSelectionStarted;
-    private int keyboardLine = -1;
+    private float zoom = 1, panX, panY, downX, downY, lastFocusX, lastFocusY, handleDeltaX, handleDeltaY;
+    private boolean multiplePointers, dragged;
+    private int activeHandle, anchor;
+    private Magnifier magnifier;
     private final ScaleGestureDetector scaleDetector;
 
     public PageView(Context context, AttributeSet attributes) {
@@ -36,99 +36,85 @@ public final class PageView extends View {
         setFocusable(true);
         scaleDetector = new ScaleGestureDetector(context, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
             @Override public boolean onScale(ScaleGestureDetector detector) {
-                float oldScale = scale();
-                float imageX = (detector.getFocusX() - originX()) / oldScale;
-                float imageY = (detector.getFocusY() - originY()) / oldScale;
+                float imageX = (detector.getFocusX() - originX()) / scale();
+                float imageY = (detector.getFocusY() - originY()) / scale();
                 zoom = Math.max(1, Math.min(6, zoom * detector.getScaleFactor()));
                 panX = detector.getFocusX() - imageX * scale() - centeredX();
                 panY = detector.getFocusY() - imageY * scale() - centeredY();
-                constrainPan();
-                invalidate();
-                return true;
+                constrainPan(); invalidate(); return true;
             }
         });
     }
 
     public void setSelectionListener(SelectionListener listener) { this.listener = listener; }
 
-    public void setPage(Bitmap page, List<OcrLine> result, Set<Integer> chosen, Rect selection) {
+    public void setPage(Bitmap page, List<OcrLine> lines, int start, int end) {
         if (bitmap != page) { zoom = 1; panX = 0; panY = 0; }
-        if (bitmap != page || lines != result) lineSelectionStarted = !chosen.isEmpty() && chosen.size() < result.size();
         bitmap = page;
-        lines = result;
-        selected.clear();
-        selected.addAll(chosen);
-        region.set(selection);
+        if (geometry.lines != lines) geometry = new TextGeometry(lines);
+        selectionStart = geometry.snap(start, false);
+        selectionEnd = geometry.snap(end, true);
         invalidate();
     }
 
     public void selectAll() {
-        if (bitmap == null) return;
-        region.set(0, 0, bitmap.getWidth(), bitmap.getHeight());
-        selected.clear();
-        for (int i = 0; i < lines.size(); i++) selected.add(i);
-        lineSelectionStarted = false;
-        notifySelection();
-        invalidate();
+        selectionStart = 0; selectionEnd = geometry.length();
+        notifySelection(); invalidate();
     }
 
+    private float dp(float value) { return value * getResources().getDisplayMetrics().density; }
     private float scale() {
-        if (bitmap == null) return 1;
-        return Math.min(getWidth() / (float) bitmap.getWidth(), getHeight() / (float) bitmap.getHeight()) * zoom;
+        return bitmap == null ? 1 : Math.min(getWidth() / (float) bitmap.getWidth(), getHeight() / (float) bitmap.getHeight()) * zoom;
     }
     private float centeredX() { return bitmap == null ? 0 : (getWidth() - bitmap.getWidth() * scale()) / 2; }
     private float centeredY() { return bitmap == null ? 0 : (getHeight() - bitmap.getHeight() * scale()) / 2; }
     private float originX() { return centeredX() + panX; }
     private float originY() { return centeredY() + panY; }
     private PointF pagePoint(float x, float y) {
-        return new PointF(Math.max(0, Math.min(bitmap.getWidth(), (x - originX()) / scale())),
-                Math.max(0, Math.min(bitmap.getHeight(), (y - originY()) / scale())));
+        return new PointF((x - originX()) / scale(), (y - originY()) / scale());
     }
+    private PointF screenPoint(PointF point) { return new PointF(originX() + point.x * scale(), originY() + point.y * scale()); }
     private void constrainPan() {
         if (bitmap == null) return;
         float limitX = Math.max(0, (bitmap.getWidth() * scale() - getWidth()) / 2);
         float limitY = Math.max(0, (bitmap.getHeight() * scale() - getHeight()) / 2);
-        panX = Math.max(-limitX, Math.min(limitX, panX));
-        panY = Math.max(-limitY, Math.min(limitY, panY));
+        panX = Math.max(-limitX, Math.min(limitX, panX)); panY = Math.max(-limitY, Math.min(limitY, panY));
+    }
+
+    private PointF handleCenter(boolean end) {
+        PointF point = screenPoint(geometry.endpoint(end ? selectionEnd : selectionStart, end));
+        point.offset(dp(end ? 8 : -8), dp(12));
+        // Keep handles touchable when the text meets the edge of the photograph/view.
+        point.x = Math.max(dp(12), Math.min(getWidth() - dp(12), point.x));
+        point.y = Math.max(dp(12), Math.min(getHeight() - dp(12), point.y));
+        return point;
     }
 
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         canvas.drawColor(Color.rgb(28, 34, 31));
         if (bitmap == null) return;
-        canvas.save();
-        canvas.translate(originX(), originY());
-        canvas.scale(scale(), scale());
-        paint.setStyle(Paint.Style.FILL);
-        paint.setColor(Color.WHITE);
+        canvas.save(); canvas.translate(originX(), originY()); canvas.scale(scale(), scale());
+        paint.setStyle(Paint.Style.FILL); paint.setColor(Color.WHITE);
         canvas.drawBitmap(bitmap, 0, 0, paint);
-        float stroke = 2 * getResources().getDisplayMetrics().density / scale();
-        for (int i = 0; i < lines.size(); i++) {
-            OcrLine line = lines.get(i);
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(selected.contains(i) ? 0x6638BFA0 : 0x1648A8FF);
+        for (int i = 0; i < geometry.lines.size(); i++) {
+            OcrLine line = geometry.lines.get(i);
+            paint.setColor(0x1048A8FF);
             canvas.drawRect(line.left(), line.top(), line.right(), line.bottom(), paint);
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(stroke / 2);
-            paint.setColor(selected.contains(i) ? 0xFF087D63 : 0x9948A8FF);
-            canvas.drawRect(line.left(), line.top(), line.right(), line.bottom(), paint);
+            RectF selected = geometry.highlight(i, selectionStart, selectionEnd);
+            paint.setColor(0x6638BFA0); canvas.drawRect(selected, paint);
         }
-        if (!region.isEmpty()) {
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(stroke);
-            paint.setColor(0xFF71E9C7);
-            canvas.drawRect(region, paint);
-            if (lines.isEmpty()) {
-                paint.setStyle(Paint.Style.FILL);
-                paint.setColor(0x55000000);
-                canvas.drawRect(0, 0, bitmap.getWidth(), region.top, paint);
-                canvas.drawRect(0, region.bottom, bitmap.getWidth(), bitmap.getHeight(), paint);
-                canvas.drawRect(0, region.top, region.left, region.bottom, paint);
-                canvas.drawRect(region.right, region.top, bitmap.getWidth(), region.bottom, paint);
-            }
-        }
-        paint.setStyle(Paint.Style.FILL);
         canvas.restore();
+        if (selectionStart < selectionEnd) { drawHandle(canvas, false); drawHandle(canvas, true); }
+    }
+
+    private void drawHandle(Canvas canvas, boolean end) {
+        PointF edge = screenPoint(geometry.endpoint(end ? selectionEnd : selectionStart, end));
+        PointF center = handleCenter(end);
+        paint.setColor(0xFF087D63); paint.setStrokeWidth(dp(2));
+        canvas.drawLine(edge.x, edge.y - dp(10), edge.x, edge.y, paint);
+        canvas.drawLine(edge.x, edge.y, center.x, center.y, paint);
+        canvas.drawCircle(center.x, center.y, dp(9), paint);
     }
 
     @Override public boolean onTouchEvent(MotionEvent event) {
@@ -136,89 +122,99 @@ public final class PageView extends View {
         scaleDetector.onTouchEvent(event);
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN -> {
+                requestFocus();
                 getParent().requestDisallowInterceptTouchEvent(true);
-                multiplePointers = false;
-                dragged = false;
+                multiplePointers = false; dragged = false; activeHandle = 0;
                 downX = event.getX(); downY = event.getY();
+                if (selectionStart < selectionEnd) {
+                    PointF first = handleCenter(false), last = handleCenter(true);
+                    float a = (float) Math.hypot(downX - first.x, downY - first.y);
+                    float b = (float) Math.hypot(downX - last.x, downY - last.y);
+                    if (Math.min(a, b) <= dp(24)) {
+                        activeHandle = a < b ? 1 : 2;
+                        PointF edge = screenPoint(geometry.endpoint(activeHandle == 1 ? selectionStart : selectionEnd, activeHandle == 2));
+                        handleDeltaX = downX - edge.x; handleDeltaY = downY - edge.y;
+                    }
+                }
                 PointF point = pagePoint(downX, downY);
-                startX = point.x; startY = point.y;
+                anchor = geometry.nearest(point.x, point.y, false);
             }
             case MotionEvent.ACTION_POINTER_DOWN -> {
-                multiplePointers = true;
+                multiplePointers = true; dismissMagnifier();
                 lastFocusX = (event.getX(0) + event.getX(1)) / 2;
                 lastFocusY = (event.getY(0) + event.getY(1)) / 2;
             }
             case MotionEvent.ACTION_MOVE -> {
                 if (event.getPointerCount() >= 2) {
-                    float focusX = (event.getX(0) + event.getX(1)) / 2;
-                    float focusY = (event.getY(0) + event.getY(1)) / 2;
+                    float focusX = (event.getX(0) + event.getX(1)) / 2, focusY = (event.getY(0) + event.getY(1)) / 2;
                     panX += focusX - lastFocusX; panY += focusY - lastFocusY;
                     lastFocusX = focusX; lastFocusY = focusY;
-                    constrainPan();
-                    invalidate();
-                } else if (!multiplePointers && Math.hypot(event.getX() - downX, event.getY() - downY) > 8 * getResources().getDisplayMetrics().density) {
+                    constrainPan(); invalidate();
+                } else if (!multiplePointers && Math.hypot(event.getX() - downX, event.getY() - downY) > dp(4)) {
                     dragged = true;
-                    lineSelectionStarted = true;
-                    PointF point = pagePoint(event.getX(), event.getY());
-                    region.set(Math.min(startX, point.x), Math.min(startY, point.y), Math.max(startX, point.x), Math.max(startY, point.y));
-                    selected.clear();
-                    for (int i = 0; i < lines.size(); i++) {
-                        OcrLine line = lines.get(i);
-                        if (line.intersects(region.left, region.top, region.right, region.bottom)) selected.add(i);
+                    moveSelection(event.getX(), event.getY());
+                    if (isHardwareAccelerated()) {
+                        if (magnifier == null) magnifier = new Magnifier.Builder(this).build();
+                        magnifier.show(event.getX() - (activeHandle == 0 ? 0 : handleDeltaX),
+                                event.getY() - (activeHandle == 0 ? 0 : handleDeltaY));
                     }
-                    invalidate();
                 }
             }
             case MotionEvent.ACTION_UP -> {
-                if (!multiplePointers) {
-                    if (!dragged) { toggleLine(startX, startY); performClick(); }
-                    if (region.width() < 2 || region.height() < 2) region.set(0, 0, bitmap.getWidth(), bitmap.getHeight());
-                    notifySelection();
+                if (!multiplePointers && !geometry.lines.isEmpty()) {
+                    if (!dragged && activeHandle == 0) { selectionStart = anchor; selectionEnd = geometry.next(anchor); notifySelection(); }
+                    performClick(); invalidate();
                 }
-                getParent().requestDisallowInterceptTouchEvent(false);
+                dismissMagnifier(); getParent().requestDisallowInterceptTouchEvent(false);
             }
-            case MotionEvent.ACTION_CANCEL -> getParent().requestDisallowInterceptTouchEvent(false);
+            case MotionEvent.ACTION_CANCEL -> { dismissMagnifier(); getParent().requestDisallowInterceptTouchEvent(false); }
             default -> { }
         }
         return true;
     }
 
-    private void toggleLine(float x, float y) {
-        for (int i = lines.size() - 1; i >= 0; i--) {
-            OcrLine line = lines.get(i);
-            if (x >= line.left() && x <= line.right() && y >= line.top() && y <= line.bottom()) {
-                if (!lineSelectionStarted) { selected.clear(); lineSelectionStarted = true; }
-                if (!selected.remove(i)) selected.add(i);
-                region.setEmpty();
-                invalidate();
-                return;
-            }
-        }
+    private void moveSelection(float x, float y) {
+        if (geometry.lines.isEmpty()) return;
+        PointF point = pagePoint(x - (activeHandle == 0 ? 0 : handleDeltaX), y - (activeHandle == 0 ? 0 : handleDeltaY));
+        int offset = geometry.nearest(point.x, point.y, activeHandle != 0);
+        if (activeHandle == 1) selectionStart = Math.min(offset, geometry.previous(selectionEnd));
+        else if (activeHandle == 2) selectionEnd = Math.max(offset, geometry.next(selectionStart));
+        else { selectionStart = Math.min(anchor, offset); selectionEnd = geometry.next(Math.max(anchor, offset)); }
+        notifySelection(); invalidate();
     }
 
-    private void notifySelection() {
-        if (listener == null || bitmap == null) return;
-        Rect bounds = region.isEmpty() ? new Rect(0, 0, bitmap.getWidth(), bitmap.getHeight())
-                : new Rect((int) region.left, (int) region.top, (int) Math.ceil(region.right), (int) Math.ceil(region.bottom));
-        listener.changed(bounds, new HashSet<>(selected));
-    }
-
+    private void notifySelection() { if (listener != null) listener.changed(selectionStart, selectionEnd); }
+    private void dismissMagnifier() { if (magnifier != null) magnifier.dismiss(); }
+    @Override protected void onDetachedFromWindow() { dismissMagnifier(); super.onDetachedFromWindow(); }
     @Override public boolean performClick() { super.performClick(); return true; }
 
-    @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (lines.isEmpty()) return super.onKeyDown(keyCode, event);
-        if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
-            keyboardLine = (keyboardLine + 1) % lines.size();
-        } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
-            keyboardLine = Math.floorMod(keyboardLine - 1, lines.size());
-        } else if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
-            if (keyboardLine < 0) keyboardLine = 0;
-            OcrLine line = lines.get(keyboardLine);
-            toggleLine(line.centerX(), line.centerY());
-            notifySelection();
-            return true;
-        } else return super.onKeyDown(keyCode, event);
-        setContentDescription(lines.get(keyboardLine).text());
-        return true;
+    @Override public boolean onKeyDown(int key, KeyEvent event) {
+        if (geometry.lines.isEmpty()) return super.onKeyDown(key, event);
+        boolean forward = key == KeyEvent.KEYCODE_DPAD_RIGHT || key == KeyEvent.KEYCODE_DPAD_DOWN;
+        boolean backward = key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_UP;
+        if (!forward && !backward) return super.onKeyDown(key, event);
+        if (event.isShiftPressed()) {
+            selectionEnd = forward ? geometry.next(selectionEnd) : Math.max(geometry.next(selectionStart), geometry.previous(selectionEnd));
+        } else {
+            selectionStart = forward ? Math.min(geometry.previous(geometry.length()), geometry.next(selectionStart)) : geometry.previous(selectionStart);
+            selectionEnd = geometry.next(selectionStart);
+        }
+        notifySelection(); invalidate(); return true;
+    }
+
+    @Override public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
+        super.onInitializeAccessibilityNodeInfo(info);
+        info.setText(geometry.text); info.setTextSelection(selectionStart, selectionEnd);
+        info.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_SELECTION);
+    }
+
+    @Override public boolean performAccessibilityAction(int action, Bundle arguments) {
+        if (action == AccessibilityNodeInfo.ACTION_SET_SELECTION && arguments != null && isEnabled()) {
+            int start = geometry.snap(arguments.getInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT), false);
+            int end = geometry.snap(arguments.getInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT), true);
+            if (start >= end) return false;
+            selectionStart = start; selectionEnd = end; notifySelection(); invalidate(); return true;
+        }
+        return super.performAccessibilityAction(action, arguments);
     }
 }

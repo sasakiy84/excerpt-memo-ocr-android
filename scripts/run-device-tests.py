@@ -26,9 +26,14 @@ if not arguments.reuse_app:
 for apk in apks:
     if not apk.is_file():
         sys.exit("Build assembleDebug assembleDebugAndroidTest first")
-    mode = "--incremental" if Path(str(apk) + ".idsig").is_file() else "--no-streaming"
-    subprocess.run([*device, "install", mode, "-r", "-t", str(apk)], check=True, timeout=1200)
+    # The large model APK benefits from IncFS; stream the small test APK normally.
+    incremental = apk.name == "app-debug.apk" and Path(str(apk) + ".idsig").is_file()
+    mode = ["--incremental"] if incremental else ["--no-incremental", "--no-streaming"]
+    subprocess.run([*device, "install", *mode, "-r", "-t", str(apk)], check=True, timeout=1200)
 
+if not arguments.no_ui_automation:
+    subprocess.run([*device, "shell", "input", "keyevent", "KEYCODE_WAKEUP"], check=True, timeout=120)
+    subprocess.run([*device, "shell", "wm", "dismiss-keyguard"], check=True, timeout=120)
 command = [*device, "shell", "am", "instrument", "-w", "-r"]
 if arguments.class_name:
     command += ["-e", "class", arguments.class_name]

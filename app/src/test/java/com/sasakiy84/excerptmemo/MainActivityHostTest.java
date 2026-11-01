@@ -30,28 +30,34 @@ import org.robolectric.annotation.GraphicsMode;
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public final class MainActivityHostTest {
     @Before public void cameraRequiresExplicitPermission() {
-        Shadows.shadowOf(RuntimeEnvironment.getApplication()).denyPermissions(Manifest.permission.CAMERA);
+        var app = RuntimeEnvironment.getApplication();
+        Shadows.shadowOf(app).denyPermissions(Manifest.permission.CAMERA);
+        app.getSharedPreferences("extraction", 0).edit().clear().commit();
+        new File(app.getFilesDir(), "page.json").delete();
+        new File(app.getFilesDir(), "page.png").delete();
     }
 
     @Test public void firstLaunchShowsCameraWithoutTryingToLoadDrawableZero() throws Exception {
         var controller = Robolectric.buildActivity(MainActivity.class).setup();
         try {
             MainActivity activity = controller.get();
+            DocumentExtractionHostTest.awaitIdle(new ViewModelProvider(activity).get(DocumentViewModel.class));
             assertThat(activity.findViewById(R.id.camera_panel).getVisibility()).isEqualTo(View.VISIBLE);
             assertThat(((MaterialToolbar) activity.findViewById(R.id.toolbar)).getNavigationIcon()).isNull();
             render(activity, "camera");
-        } finally { controller.pause().stop().destroy(); }
+        } finally { DocumentExtractionHostTest.close(controller); }
     }
 
     @Test public void copyHonorsReverseTextSelection() throws Exception {
         var controller = Robolectric.buildActivity(MainActivity.class).setup();
         try {
             MainActivity activity = controller.get();
+            DocumentExtractionHostTest.awaitIdle(new ViewModelProvider(activity).get(DocumentViewModel.class));
             DocumentViewModel model = new ViewModelProvider(activity).get(DocumentViewModel.class);
             model.page = BitmapFactory.decodeStream(getClass().getResourceAsStream("/horizontal.png"));
-            model.lines = List.of(new OcrLine(80, 100, 800, 180, "資料の文字をコピーする"));
+            model.allLines = List.of(new OcrLine(80, 100, 800, 180, "資料の文字をコピーする"));
             model.busy = false;
-            model.select(new Rect(0, 0, 1200, 700), Set.of(0));
+            model.setInclusions(false, false, false);
             render(activity, "page");
             EditText text = activity.findViewById(R.id.result_text);
             text.setSelection(5, 0);
@@ -62,7 +68,7 @@ public final class MainActivityHostTest {
                     .check(R.id.text_mode);
             assertThat(activity.findViewById(R.id.page_view).getVisibility()).isEqualTo(View.GONE);
             render(activity, "text");
-        } finally { controller.pause().stop().destroy(); }
+        } finally { DocumentExtractionHostTest.close(controller); }
     }
 
     private static void render(MainActivity activity, String name) throws Exception {

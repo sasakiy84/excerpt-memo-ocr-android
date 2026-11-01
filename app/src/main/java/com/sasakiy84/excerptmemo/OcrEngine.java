@@ -72,7 +72,7 @@ public final class OcrEngine implements AutoCloseable {
         }
     }
 
-    private record Detection(Rect box, float confidence, int tier) {}
+    private record Detection(Rect box, float confidence, int tier, OcrLine.Kind kind) {}
 
     public List<OcrLine> read(Bitmap page, Rect region, AtomicBoolean cancelled, Progress progress) throws Exception {
         checkCancelled(cancelled);
@@ -93,7 +93,7 @@ public final class OcrEngine implements AutoCloseable {
                     text = recognize(line, detection.tier, cancelled);
                 } finally { if (line != crop) line.recycle(); }
                 if (!text.isBlank()) lines.add(new OcrLine(box.left + region.left, box.top + region.top,
-                        box.right + region.left, box.bottom + region.top, text));
+                        box.right + region.left, box.bottom + region.top, text, detection.kind));
                 progress.update(++done, detections.size());
             }
             checkCancelled(cancelled);
@@ -119,6 +119,7 @@ public final class OcrEngine implements AutoCloseable {
         float[] pixels = channels(resized, true);
         resized.recycle();
         List<Detection> candidates = new ArrayList<>();
+        List<Rect> tables = new ArrayList<>();
         try (OnnxTensor tensor = OnnxTensor.createTensor(environment, FloatBuffer.wrap(pixels), new long[]{1, 3, inputHeight, inputWidth});
              OnnxTensor dimensions = OnnxTensor.createTensor(environment, new long[][]{{inputHeight, inputWidth}});
              OrtSession.Result result = detector.run(Map.of(inputNames.get(0), tensor, inputNames.get(1), dimensions))) {
@@ -129,8 +130,8 @@ public final class OcrEngine implements AutoCloseable {
             for (int i = 0; i < labels.length; i++) {
                 int label = (int) labels[i];
                 float confidence = scores.get(i);
-                // Labels are one-based; text blocks, figures and ruby are not text lines.
-                if (confidence <= 0.2f || !((label >= 2 && label <= 6) || label == 17)) continue;
+                // NDLOCR exports one-based labels. Table blocks only classify contained lines.
+                if (confidence <= 0.2f || !((label >= 2 && label <= 6) || label == 10 || label == 11 || label == 16 || label == 17)) continue;
                 float scale = side / (float) inputWidth;
                 Rect box = new Rect(
                         Math.max(0, (int) (boxes.get(i * 4) * scale)),
@@ -138,7 +139,21 @@ public final class OcrEngine implements AutoCloseable {
                         Math.min(image.getWidth(), (int) (boxes.get(i * 4 + 2) * scale)),
                         Math.min(image.getHeight(), (int) (boxes.get(i * 4 + 3) * scale)));
                 if (box.width() < 2 || box.height() < 2) continue;
-                candidates.add(new Detection(box, confidence, counts == null ? 1 : (int) counts[i]));
+                if (label == 16) { tables.add(box); continue; }
+                OcrLine.Kind kind = label == 10 ? OcrLine.Kind.PAGE_NUMBER : label == 11 ? OcrLine.Kind.RUBY : OcrLine.Kind.TEXT;
+                candidates.add(new Detection(box, confidence, counts == null ? 1 : (int) counts[i], kind));
+            }
+        }
+        for (int i = 0; i < candidates.size(); i++) {
+            Detection line = candidates.get(i);
+            if (line.kind != OcrLine.Kind.TEXT) continue;
+            for (Rect table : tables) {
+                Rect overlap = new Rect(line.box);
+                if (overlap.intersect(table) && overlap.width() * (float) overlap.height()
+                        >= line.box.width() * (float) line.box.height() * 0.5f) {
+                    candidates.set(i, new Detection(line.box, line.confidence, line.tier, OcrLine.Kind.TABLE));
+                    break;
+                }
             }
         }
         candidates.sort(Comparator.comparingDouble(Detection::confidence).reversed());
@@ -146,6 +161,7 @@ public final class OcrEngine implements AutoCloseable {
         for (Detection candidate : candidates) {
             boolean duplicate = false;
             for (Detection other : kept) {
+                if (candidate.kind != other.kind) continue;
                 Rect overlap = new Rect(candidate.box);
                 if (overlap.intersect(other.box)) {
                     float area = overlap.width() * (float) overlap.height();
