@@ -33,7 +33,7 @@ python3 scripts/run-device-tests.py
 ## リリース APK
 
 ```sh
-python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.2.0
+python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.2.1
 "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
 "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 app/build/outputs/apk/release/app-release.apk
 ```
@@ -69,3 +69,11 @@ python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.2.
 ```sh
 python3 scripts/run-device-tests.py --class-name com.sasakiy84.excerptmemo.DocumentUiTest#selectCharactersSwitchToTextCopyAndRestoreAfterRotation --no-ui-automation --expected-tests 1
 ```
+
+## 0.2.1 の画面調整
+
+- ページ画面の文章プレビューを最大 3 行とし、テキスト画面では編集欄が残りの高さを使う。
+- 読取対象のチェックボックスを文章とコピー操作の近くへ移動。配色・角丸・アイコン・操作の余白を整理。
+- ローカルのホストテスト 30 件、Android 16 の選択・切替・コピー・再作成テスト 1 件: 成功。
+- ホストで 411 dp / 360 dp 幅のページ・テキスト・カメラ画面を描画して確認。Android エミュレーターの実画面でも確認。
+- debug / release lint、署名、モデル、APK メタデータ、16 KB アラインメント: 成功。

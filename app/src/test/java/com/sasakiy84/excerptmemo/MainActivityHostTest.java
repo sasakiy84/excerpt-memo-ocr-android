@@ -72,11 +72,16 @@ public final class MainActivityHostTest {
     }
 
     private static void render(MainActivity activity, String name) throws Exception {
+        render(activity, name, 1080, 1920);
+        render(activity, name + "-compact", 945, 1680);
+    }
+
+    private static void render(MainActivity activity, String name, int width, int height) throws Exception {
         View root = activity.findViewById(R.id.root);
-        root.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(1920, View.MeasureSpec.EXACTLY));
-        root.layout(0, 0, 1080, 1920);
-        Bitmap bitmap = Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888);
+        root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
+        root.layout(0, 0, width, height);
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         android.util.TypedValue background = new android.util.TypedValue();
         activity.getTheme().resolveAttribute(android.R.attr.colorBackground, background, true);

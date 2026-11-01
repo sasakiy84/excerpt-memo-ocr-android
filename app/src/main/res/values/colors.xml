@@ -1,0 +1,11 @@
+<resources>
+    <color name="excerpt_background">#FAFBF8</color>
+    <color name="excerpt_panel">#F0F3ED</color>
+    <color name="excerpt_canvas">#E7ECE5</color>
+    <color name="excerpt_selected">#DCECDF</color>
+    <color name="excerpt_ink">#1B2922</color>
+    <color name="excerpt_muted">#53645A</color>
+    <color name="excerpt_outline">#CCD7CD</color>
+    <color name="excerpt_primary">#245C45</color>
+    <color name="excerpt_on_primary">#FFFFFF</color>
+</resources>

@@ -85,7 +85,7 @@ public final class MainActivity extends AppCompatActivity {
         });
         document = new ViewModelProvider(this).get(DocumentViewModel.class);
         toolbar = findViewById(R.id.toolbar);
-        toolbar.getMenu().add(Menu.NONE, MENU_ALL, Menu.NONE, R.string.all).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        toolbar.getMenu().add(Menu.NONE, MENU_ALL, Menu.NONE, R.string.all).setIcon(R.drawable.ic_select_all).setIconTintList(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.excerpt_ink))).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
         toolbar.getMenu().add(Menu.NONE, MENU_ROTATE, Menu.NONE, R.string.rotate);
         toolbar.getMenu().add(Menu.NONE, MENU_LICENSES, Menu.NONE, R.string.licenses);
         toolbar.setOnMenuItemClickListener(item -> {
@@ -180,6 +180,14 @@ public final class MainActivity extends AppCompatActivity {
             boolean hasText = !document.lines.isEmpty() || !document.text.isEmpty();
             resultText.setVisibility(hasText || document.textMode ? View.VISIBLE : View.GONE);
             resultText.setEnabled(!document.busy);
+            android.widget.LinearLayout.LayoutParams editorLayout = (android.widget.LinearLayout.LayoutParams) resultText.getLayoutParams();
+            int editorHeight = document.textMode ? 0 : android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+            float editorWeight = document.textMode ? 1 : 0;
+            if (editorLayout.height != editorHeight || editorLayout.weight != editorWeight) {
+                editorLayout.height = editorHeight; editorLayout.weight = editorWeight;
+                resultText.setMaxLines(document.textMode ? Integer.MAX_VALUE : 3);
+                resultText.setLayoutParams(editorLayout);
+            }
             if (!resultText.getText().toString().equals(document.text)) {
                 updatingText = true;
                 resultText.setText(document.text);
@@ -193,7 +201,9 @@ public final class MainActivity extends AppCompatActivity {
             status.setText(document.status);
             status.setVisibility(document.status.isEmpty() ? View.GONE : View.VISIBLE);
             findViewById(R.id.progress).setVisibility(document.busy ? View.VISIBLE : View.GONE);
-            ((MaterialButton) findViewById(R.id.read_button)).setText(document.busy ? R.string.cancel : hasText ? R.string.reread : R.string.read);
+            MaterialButton readButton = findViewById(R.id.read_button);
+            readButton.setText(document.busy ? R.string.cancel : hasText ? R.string.reread : R.string.read);
+            readButton.setIconResource(document.busy ? R.drawable.ic_close : R.drawable.ic_refresh);
             findViewById(R.id.copy_button).setEnabled(!document.busy && !document.text.isBlank());
         } else {
             boolean granted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;

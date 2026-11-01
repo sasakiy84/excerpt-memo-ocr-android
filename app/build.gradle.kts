@@ -1,6 +1,6 @@
 plugins { id("com.android.application") }
 
-val releaseVersion = providers.gradleProperty("releaseVersion").orElse("0.2.0").get()
+val releaseVersion = providers.gradleProperty("releaseVersion").orElse("0.2.1").get()
 require(Regex("(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,2})").matches(releaseVersion))
 val (major, minor, patch) = releaseVersion.split('.').map(String::toInt)
 val storePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
