@@ -45,6 +45,7 @@ public final class MainActivityHostTest {
             assertThat(activity.findViewById(R.id.camera_panel).getVisibility()).isEqualTo(View.VISIBLE);
             assertThat(((MaterialToolbar) activity.findViewById(R.id.toolbar)).getNavigationIcon()).isNull();
             render(activity, "camera");
+            renderLauncherIcon(activity);
         } finally { DocumentExtractionHostTest.close(controller); }
     }
 
@@ -76,6 +77,28 @@ public final class MainActivityHostTest {
             assertThat(activity.findViewById(R.id.page_view).getVisibility()).isEqualTo(View.GONE);
             render(activity, "text");
         } finally { DocumentExtractionHostTest.close(controller); }
+    }
+
+    private static void renderLauncherIcon(MainActivity activity) throws Exception {
+        var icon = (android.graphics.drawable.AdaptiveIconDrawable) androidx.core.content.ContextCompat.getDrawable(activity, R.mipmap.ic_launcher);
+        File directory = new File("build/reports/ui");
+        if (!directory.isDirectory() && !directory.mkdirs()) throw new java.io.IOException("Cannot create icon preview directory");
+        for (int size : new int[]{512, 144}) {
+            Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+            icon.setBounds(0, 0, size, size); icon.draw(new Canvas(bitmap));
+            try (FileOutputStream output = new FileOutputStream(new File(directory, "icon-" + size + ".png"))) {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output);
+            }
+            bitmap.recycle();
+        }
+        var mask = androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.ic_document).mutate(); mask.setTint(android.graphics.Color.WHITE);
+        var themed = new android.graphics.drawable.AdaptiveIconDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK), mask);
+        Bitmap bitmap = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888);
+        themed.setBounds(0, 0, 512, 512); themed.draw(new Canvas(bitmap));
+        try (FileOutputStream output = new FileOutputStream(new File(directory, "icon-monochrome.png"))) {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output);
+        }
+        bitmap.recycle();
     }
 
     private static void render(MainActivity activity, String name) throws Exception {

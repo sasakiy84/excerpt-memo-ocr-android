@@ -33,7 +33,7 @@ python3 scripts/run-device-tests.py
 ## リリース APK
 
 ```sh
-python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.3.0
+python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.3.1
 "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
 "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 app/build/outputs/apk/release/app-release.apk
 ```
@@ -85,3 +85,10 @@ python3 scripts/run-device-tests.py --class-name com.sasakiy84.excerptmemo.Docum
 - 元画像を private 領域に保持し、適用後もリセットで再編集できる。調整値・元画像は保存し、ページを閉じると両画像を削除する。
 - ローカルのホストテスト 35 件: 成功。回転と切り抜きの画素検査、実モデルでの切り抜き後の自動読取りとリセット、ハンドル操作、画面再作成時の編集値保持、キャンセルを確認。
 - Android 16 の操作テスト 1 件: 成功。文字選択・コピー・画面再作成に加え、画像調整画面の起動、角度変更、取消を確認。
+
+## 0.3.1 のアイコン
+
+- 白背景と黒の線画で Adaptive Icon を構成し、透明な前景を monochrome レイヤーにも使う。
+- 512 px / 144 px の通常表示と、白黒反転したテーマ表示を Android の Drawable で描画して確認。
+- ラウンドアイコンも同じ Adaptive Icon を参照する。
+- ローカルのホストテスト 35 件、debug / release lint、署名・モデル・APK の検査: 成功。
