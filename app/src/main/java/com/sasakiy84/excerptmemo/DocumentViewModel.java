@@ -39,6 +39,7 @@ public final class DocumentViewModel extends AndroidViewModel {
     public String text = "", status = "";
     private int[] textOrigins = new int[0];
     public boolean busy, textMode;
+    public float textPanelFraction = .28f;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private AtomicBoolean cancellation = new AtomicBoolean();
@@ -78,10 +79,12 @@ public final class DocumentViewModel extends AndroidViewModel {
                             selectionStart = geometry.snap(json.optInt("selectionStart"), false);
                             selectionEnd = Math.max(selectionStart, geometry.snap(json.optInt("selectionEnd"), true));
                         }
-                        text = json.optString("text", geometry().text.substring(selectionStart, selectionEnd));
-                        resetTextOrigins();
+                        textPanelFraction = (float) json.optDouble("textPanelFraction", .28);
+                        String savedText = json.optString("text", geometry().text.substring(selectionStart, selectionEnd));
+                        boolean migrateParagraphs = !json.optBoolean("paragraphText") && savedText.equals(geometry().text.substring(selectionStart, selectionEnd));
+                        if (migrateParagraphs) setExcerpt(); else { text = savedText; resetTextOrigins(); }
                         JSONArray origins = json.optJSONArray("textOrigins");
-                        if (origins != null && origins.length() == text.length()) {
+                        if (!migrateParagraphs && origins != null && origins.length() == text.length()) {
                             textOrigins = new int[text.length()];
                             for (int i = 0; i < textOrigins.length; i++) textOrigins[i] = origins.optInt(i, -1);
                         }
@@ -213,8 +216,7 @@ public final class DocumentViewModel extends AndroidViewModel {
         TextGeometry geometry = geometry();
         selectionStart = geometry.snap(Math.min(start, end), false);
         selectionEnd = geometry.snap(Math.max(start, end), true);
-        text = geometry.text.substring(selectionStart, selectionEnd);
-        resetTextOrigins();
+        setExcerpt();
         changed();
     }
 
@@ -255,13 +257,17 @@ public final class DocumentViewModel extends AndroidViewModel {
                 selectionEnd = geometry.starts[i] + to;
             }
         }
-        text = geometry.text.substring(selectionStart, selectionEnd);
-        resetTextOrigins();
+        setExcerpt();
     }
 
     private TextGeometry geometry() {
         if (cachedGeometry.lines != lines) cachedGeometry = new TextGeometry(lines);
         return cachedGeometry;
+    }
+
+    private void setExcerpt() {
+        ParagraphText.Result excerpt = ParagraphText.extract(lines, selectionStart, selectionEnd);
+        text = excerpt.text(); textOrigins = excerpt.origins();
     }
 
     private void resetTextOrigins() {
@@ -320,6 +326,7 @@ public final class DocumentViewModel extends AndroidViewModel {
             for (OcrLine line : allLines) array.put(new JSONArray().put(line.left()).put(line.top()).put(line.right()).put(line.bottom()).put(line.text()).put(line.kind().name()));
             JSONObject state = new JSONObject().put("lines", array).put("text", text).put("textMode", textMode)
                     .put("selectionStart", selectionStart).put("selectionEnd", selectionEnd)
+                    .put("paragraphText", true).put("textPanelFraction", textPanelFraction)
                     .put("editAngle", editAngle).put("editCrop", new JSONArray().put(editCrop.left).put(editCrop.top).put(editCrop.right).put(editCrop.bottom));
             if (textOrigins != null) {
                 JSONArray origins = new JSONArray();

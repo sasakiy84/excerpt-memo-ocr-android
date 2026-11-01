@@ -103,6 +103,7 @@ public final class MainActivity extends AppCompatActivity {
         preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
         pageView = findViewById(R.id.page_view);
         pageView.setSelectionListener((start, end) -> document.select(start, end));
+        ((TextDrawer) findViewById(R.id.text_drawer)).setSizeListener(fraction -> document.textPanelFraction = fraction);
         resultText = findViewById(R.id.result_text);
         resultText.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence value, int start, int count, int after) {}
@@ -167,16 +168,10 @@ public final class MainActivity extends AppCompatActivity {
             pageView.setEnabled(!document.busy);
             pageView.setVisibility(document.textMode ? View.GONE : View.VISIBLE);
             boolean hasText = !document.lines.isEmpty() || !document.text.isEmpty();
-            resultText.setVisibility(hasText || document.textMode ? View.VISIBLE : View.GONE);
+            TextDrawer drawer = findViewById(R.id.text_drawer);
+            drawer.setVisibility(hasText || document.textMode ? View.VISIBLE : View.GONE);
+            drawer.bind(document.textPanelFraction, document.textMode);
             resultText.setEnabled(!document.busy);
-            android.widget.LinearLayout.LayoutParams editorLayout = (android.widget.LinearLayout.LayoutParams) resultText.getLayoutParams();
-            int editorHeight = document.textMode ? 0 : android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
-            float editorWeight = document.textMode ? 1 : 0;
-            if (editorLayout.height != editorHeight || editorLayout.weight != editorWeight) {
-                editorLayout.height = editorHeight; editorLayout.weight = editorWeight;
-                resultText.setMaxLines(document.textMode ? Integer.MAX_VALUE : 2);
-                resultText.setLayoutParams(editorLayout);
-            }
             if (!resultText.getText().toString().equals(document.text)) {
                 updatingText = true;
                 resultText.setText(document.text);

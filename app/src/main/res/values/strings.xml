@@ -37,4 +37,5 @@
     <string name="reset">リセット</string>
     <string name="apply">適用</string>
     <string name="crop_description">画像の切り抜き。四隅と辺をドラッグして範囲を調整。</string>
+    <string name="text_drawer_height">テキスト表示の高さ</string>
 </resources>

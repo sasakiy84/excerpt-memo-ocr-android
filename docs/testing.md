@@ -8,7 +8,7 @@ python3 scripts/verify-models.py
 python3 scripts/gradle-cloud.py --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
 ```
 
-ホスト側の 35 件は、読み順・PARSeq の復号 7 件、実モデルの OCR 3 件、起動・コピー 2 件、フィルタ・自動 OCR・引用 5 件、画像上のハンドル操作 3 件、文字境界 4 件、ページ表記 6 件、画像編集 5 件です。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。横書き・縦書き・英語・空白・切り出しと座標を確認します。画面画像は `app/build/reports/ui/` に出力します。
+ホスト側の 46 件は、読み順・PARSeq の復号 7 件、実モデルの OCR 3 件、起動・コピー 2 件、フィルタ・自動 OCR・引用 6 件、画像上のハンドル操作 3 件、文字境界 4 件、ページ表記 6 件、画像編集 5 件、段落整形 9 件、文章ドロワー 1 件です。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。横書き・縦書き・英語・空白・切り出しと座標を確認します。画面画像は `app/build/reports/ui/` に出力します。
 
 ## Android 16
 
@@ -33,7 +33,7 @@ python3 scripts/run-device-tests.py
 ## リリース APK
 
 ```sh
-python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.3.1
+python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.4.0
 "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
 "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 app/build/outputs/apk/release/app-release.apk
 ```
@@ -92,3 +92,13 @@ python3 scripts/run-device-tests.py --class-name com.sasakiy84.excerptmemo.Docum
 - 512 px / 144 px の通常表示と、白黒反転したテーマ表示を Android の Drawable で描画して確認。
 - ラウンドアイコンも同じ Adaptive Icon を参照する。
 - ローカルのホストテスト 35 件、debug / release lint、署名・モデル・APK の検査: 成功。
+
+## 0.4.0 の文章ドロワーと段落整形
+
+- 選択文の欄を連続的に高さ調整できるドロワーへ変更。ドラッグ中もコピー操作を画面下に残し、文字欄は独立してスクロールする。高さの割合は画面再作成・保存後の復元で保持する。
+- 同じ段落の行を結合し、前行の短い終端・次行の一文字相当の字下げ・大きな行間・列の切替を段落の境界に使う。横書きと縦書きの両方に適用し、表の行は結合しない。
+- 画像上の選択座標は元の改行付き文字列を使い続ける。結合後の文章には元の文字位置を対応付け、文字訂正後の部分コピーにもページ表記を付ける。
+- ローカルのホストテスト 46 件: 成功。段落の結合と区切り、英語の空白、部分選択、結合後のページ対応、ドロワーの高さ変更を確認。
+- Android 16 の操作テスト 1 件: 成功。ドロワーを 100 px 引き上げて指定通りの高さになること、文字選択・テキスト切替・コピー・画面再作成時の高さ保持と画像編集の取消を確認。
+- debug / release lint、署名付き APK、モデル・署名証明書・16 KB アラインメントの検査: 成功。
+- Android エミュレーターで縦長の資料を表示し、通常の高さと大きく引き上げた状態を撮影。コピー操作の表示と文章の折り返しを確認。

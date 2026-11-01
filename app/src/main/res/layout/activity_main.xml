@@ -47,19 +47,27 @@
                     style="@style/Widget.Excerpt.ModeButton" android:layout_width="0dp" android:layout_weight="1"
                     android:layout_height="match_parent" android:text="@string/text" />
             </com.google.android.material.button.MaterialButtonToggleGroup>
-            <com.sasakiy84.excerptmemo.PageView android:id="@+id/page_view"
-                android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
-                android:layout_marginHorizontal="12dp" android:layout_marginBottom="4dp"
-                android:background="@drawable/page_canvas_background" android:clipToOutline="true"
-                android:contentDescription="@string/page_description" />
-            <EditText android:id="@+id/result_text" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginHorizontal="16dp" android:layout_marginTop="12dp" android:gravity="top|start"
-                android:minHeight="56dp" android:maxLines="2" android:padding="14dp"
-                android:background="@drawable/excerpt_text_background" android:textColor="@color/excerpt_ink"
-                android:textColorHint="@color/excerpt_muted" android:lineSpacingExtra="4dp"
-                android:inputType="textMultiLine|textCapSentences" android:textSize="17sp"
-                android:scrollbars="vertical" android:importantForAutofill="no" android:hint="@string/result_text"
-                android:visibility="gone" />
+            <LinearLayout android:id="@+id/document_content" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical">
+                <com.sasakiy84.excerptmemo.PageView android:id="@+id/page_view"
+                    android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+                    android:layout_marginHorizontal="12dp" android:background="@drawable/page_canvas_background"
+                    android:clipToOutline="true" android:contentDescription="@string/page_description" />
+                <com.sasakiy84.excerptmemo.TextDrawer android:id="@+id/text_drawer"
+                    android:layout_width="match_parent" android:layout_height="148dp" android:orientation="vertical"
+                    android:layout_marginHorizontal="12dp" android:layout_marginTop="8dp"
+                    android:background="@drawable/excerpt_text_background" android:visibility="gone">
+                    <FrameLayout android:id="@+id/drawer_handle" android:layout_width="match_parent" android:layout_height="48dp"
+                        android:focusable="true" android:contentDescription="@string/text_drawer_height">
+                        <View android:layout_width="40dp" android:layout_height="4dp" android:layout_gravity="center" android:background="@drawable/drawer_handle" />
+                    </FrameLayout>
+                    <EditText android:id="@+id/result_text" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+                        android:gravity="top|start" android:paddingHorizontal="14dp" android:paddingBottom="14dp" android:paddingTop="8dp"
+                        android:background="@android:color/transparent" android:textColor="@color/excerpt_ink"
+                        android:textColorHint="@color/excerpt_muted" android:lineSpacingExtra="4dp"
+                        android:inputType="textMultiLine|textCapSentences" android:textSize="17sp"
+                        android:scrollbars="vertical" android:importantForAutofill="no" android:hint="@string/result_text" />
+                </com.sasakiy84.excerptmemo.TextDrawer>
+            </LinearLayout>
             <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:paddingHorizontal="20dp" android:paddingTop="10dp" android:textSize="13sp"
                 android:textColor="@color/excerpt_muted" android:accessibilityLiveRegion="polite" android:visibility="gone" />

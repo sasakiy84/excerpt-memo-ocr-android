@@ -108,9 +108,11 @@ public final class MainActivityHostTest {
 
     private static void render(MainActivity activity, String name, int width, int height) throws Exception {
         View root = activity.findViewById(R.id.root);
-        root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
-        root.layout(0, 0, width, height);
+        for (int i = 0; i < 3; i++) {
+            root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
+            root.layout(0, 0, width, height);
+        }
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         android.util.TypedValue background = new android.util.TypedValue();

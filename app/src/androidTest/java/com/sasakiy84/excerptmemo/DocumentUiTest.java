@@ -68,6 +68,16 @@ public final class DocumentUiTest {
                 android.view.View view = activity.findViewById(R.id.page_view);
                 return view.getWidth() > 0 && view.getHeight() > 0 && !view.isLayoutRequested();
             });
+            var heightBeforeDrag = new java.util.concurrent.atomic.AtomicInteger();
+            var drawerFraction = new java.util.concurrent.atomic.AtomicReference<Float>();
+            scenario.onActivity(activity -> {
+                heightBeforeDrag.set(activity.findViewById(R.id.text_drawer).getHeight());
+                touchDrawer(activity, android.view.MotionEvent.ACTION_DOWN, 400);
+                touchDrawer(activity, android.view.MotionEvent.ACTION_MOVE, 300);
+                touchDrawer(activity, android.view.MotionEvent.ACTION_UP, 300);
+                drawerFraction.set(new ViewModelProvider(activity).get(DocumentViewModel.class).textPanelFraction);
+            });
+            waitFor(scenario, activity -> activity.findViewById(R.id.text_drawer).getHeight() == heightBeforeDrag.get() + 100);
             scenario.onActivity(activity -> {
                 assertThat(activity.findViewById(R.id.page_view).getVisibility()).isEqualTo(android.view.View.VISIBLE);
                 touchPage(activity, android.view.MotionEvent.ACTION_DOWN, 250, 370);
@@ -94,6 +104,7 @@ public final class DocumentUiTest {
                 DocumentViewModel model = new ViewModelProvider(activity).get(DocumentViewModel.class);
                 assertThat(model.text).isEqualTo("資料の文字をコピーする");
                 assertThat(model.textMode).isTrue();
+                assertThat(model.textPanelFraction).isEqualTo(drawerFraction.get());
                 assertThat(model.selectionStart).isEqualTo(0);
                 assertThat(model.selectionEnd).isEqualTo("資料の文字をコピーする".length());
             });
@@ -109,6 +120,12 @@ public final class DocumentUiTest {
                 assertThat(new ViewModelProvider(activity).get(DocumentViewModel.class).text).isEqualTo("資料の文字をコピーする");
             });
         }
+    }
+
+    private static void touchDrawer(MainActivity activity, int action, float y) {
+        android.view.MotionEvent event = android.view.MotionEvent.obtain(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), action, 20, y, 0);
+        activity.findViewById(R.id.drawer_handle).dispatchTouchEvent(event);
+        event.recycle();
     }
 
     private static void touchPage(MainActivity activity, int action, float x, float y) {

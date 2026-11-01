@@ -120,6 +120,33 @@ public final class DocumentExtractionHostTest {
         } finally { close(controller); }
     }
 
+    @Test public void joinedParagraphsKeepPageReferencesThroughTextCorrections() throws Exception {
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        try {
+            var model = document(controller.get());
+            model.allLines = List.of(
+                    new OcrLine(600, 100, 950, 120, "右の本文の前半"),
+                    new OcrLine(600, 130, 950, 150, "右の本文の後半"),
+                    new OcrLine(100, 100, 450, 120, "左の本文の前半"),
+                    new OcrLine(100, 130, 450, 150, "左の本文の後半"),
+                    new OcrLine(850, 940, 900, 980, "12", OcrLine.Kind.PAGE_NUMBER),
+                    new OcrLine(100, 940, 150, 980, "13", OcrLine.Kind.PAGE_NUMBER));
+            model.setInclusions(false, false, false);
+            String right = "右の本文の前半右の本文の後半", left = "左の本文の前半左の本文の後半";
+            assertThat(model.text).isEqualTo(right + "\n" + left);
+            assertThat(model.forClipboard(right.length() + 1, model.text.length())).isEqualTo(left + "（p. 13）");
+            android.widget.EditText editor = controller.get().findViewById(R.id.result_text);
+            editor.getText().insert(0, "引用:");
+            assertThat(model.forClipboard(right.length() + 4, model.text.length())).isEqualTo(left + "（p. 13）");
+            assertThat(model.forClipboard(0, 0)).endsWith("（pp. 12–13）");
+            var geometry = new TextGeometry(model.lines);
+            int line = model.lines.indexOf(model.allLines.get(1));
+            model.select(geometry.starts[line] + 2, geometry.starts[line] + 6);
+            assertThat(model.text).isEqualTo("本文の後");
+            assertThat(model.forClipboard(0, 0)).isEqualTo("本文の後（p. 12）");
+        } finally { close(controller); }
+    }
+
     @Test public void filteringPreservesPartialCharacterSelection() throws Exception {
         var controller = Robolectric.buildActivity(MainActivity.class).setup();
         try {
