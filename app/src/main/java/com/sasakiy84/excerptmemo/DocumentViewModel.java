@@ -29,9 +29,13 @@ public final class DocumentViewModel extends AndroidViewModel {
     public final MutableLiveData<Integer> changes = new MutableLiveData<>(0);
     public Bitmap page;
     private Bitmap sourcePage;
+    private Bitmap rectifiedPage;
     public boolean pageRectified;
+    public boolean editRectified;
     public float editAngle;
     public android.graphics.RectF editCrop = new android.graphics.RectF(0, 0, 1, 1);
+    public float rectifiedEditAngle;
+    public android.graphics.RectF rectifiedEditCrop = new android.graphics.RectF(0, 0, 1, 1);
     public List<OcrLine> lines = List.of();
     public List<OcrLine> allLines = List.of();
     private TextGeometry cachedGeometry = new TextGeometry(lines);
@@ -61,6 +65,9 @@ public final class DocumentViewModel extends AndroidViewModel {
                     Bitmap restored = decode(ImageDecoder.createSource(image));
                     Bitmap source = sourceFile().isFile() ? decode(ImageDecoder.createSource(sourceFile())) : restored;
                     JSONObject json = new JSONObject(new String(new AtomicFile(state).readFully(), StandardCharsets.UTF_8));
+                    // 0.5.0 retained only the displayed UVDoc result; use it as the initial edit base.
+                    Bitmap rectified = rectifiedFile().isFile() ? decode(ImageDecoder.createSource(rectifiedFile()))
+                            : json.optBoolean("pageRectified") ? restored : null;
                     List<OcrLine> restoredLines = new ArrayList<>();
                     JSONArray array = json.getJSONArray("lines");
                     for (int i = 0; i < array.length(); i++) {
@@ -72,6 +79,11 @@ public final class DocumentViewModel extends AndroidViewModel {
                     main.post(() -> {
                         page = restored; sourcePage = source; allLines = restoredLines;
                         pageRectified = json.optBoolean("pageRectified");
+                        rectifiedPage = rectified;
+                        editRectified = rectified != null && json.optBoolean("editRectified", pageRectified);
+                        rectifiedEditAngle = (float) json.optDouble("rectifiedEditAngle", 0);
+                        JSONArray correctedCrop = json.optJSONArray("rectifiedEditCrop");
+                        if (correctedCrop != null && correctedCrop.length() == 4) rectifiedEditCrop = new android.graphics.RectF((float)correctedCrop.optDouble(0), (float)correctedCrop.optDouble(1), (float)correctedCrop.optDouble(2), (float)correctedCrop.optDouble(3));
                         editAngle = (float) json.optDouble("editAngle", 0);
                         JSONArray savedCrop = json.optJSONArray("editCrop");
                         if (savedCrop != null && savedCrop.length() == 4) editCrop = new android.graphics.RectF((float)savedCrop.optDouble(0), (float)savedCrop.optDouble(1), (float)savedCrop.optDouble(2), (float)savedCrop.optDouble(3));
@@ -102,7 +114,10 @@ public final class DocumentViewModel extends AndroidViewModel {
 
     private File imageFile() { return new File(getApplication().getFilesDir(), "page.png"); }
     private File sourceFile() { return new File(getApplication().getFilesDir(), "source.png"); }
+    private File rectifiedFile() { return new File(getApplication().getFilesDir(), "rectified.png"); }
     public Bitmap editorSource() { return sourcePage == null ? page : sourcePage; }
+    public boolean hasRectifiedImage() { return rectifiedPage != null; }
+    public Bitmap editorSource(boolean rectified) { return rectified ? rectifiedPage : editorSource(); }
     private File stateFile() { return new File(getApplication().getFilesDir(), "page.json"); }
     private void changed() { changes.setValue(changes.getValue() + 1); }
 
@@ -127,9 +142,11 @@ public final class DocumentViewModel extends AndroidViewModel {
                 if (token.get()) return;
                 writeImage(decoded);
                 writeBitmap(decoded, sourceFile());
+                new AtomicFile(rectifiedFile()).delete();
                 main.post(() -> {
                     if (token.get()) return;
                     page = decoded; sourcePage = decoded; pageRectified = false; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false;
+                    rectifiedPage = null; editRectified = false; rectifiedEditAngle = 0; rectifiedEditCrop = new android.graphics.RectF(0, 0, 1, 1);
                     status = ""; busy = false; changed(); save(); read();
                 });
             } catch (Exception | OutOfMemoryError exception) {
@@ -151,20 +168,30 @@ public final class DocumentViewModel extends AndroidViewModel {
     }
 
     public void applyImageEdit(float degrees, android.graphics.RectF crop) {
+        applyImageEdit(degrees, crop, editRectified);
+    }
+
+    public void applyImageEdit(float degrees, android.graphics.RectF crop, boolean fromRectified) {
         if (busy || page == null) return;
+        if (fromRectified && !hasRectifiedImage()) return;
         AtomicBoolean token = new AtomicBoolean(); cancellation = token;
-        Bitmap original = editorSource();
+        Bitmap original = editorSource(fromRectified);
         android.graphics.RectF selection = new android.graphics.RectF(crop);
         busy = true; status = getApplication().getString(R.string.image_loading); changed();
         worker.execute(() -> {
             try {
                 Bitmap edited = ImageEdits.apply(original, degrees, selection);
                 if (token.get()) return;
-                if (!sourceFile().isFile()) writeBitmap(original, sourceFile());
+                if (!sourceFile().isFile()) writeBitmap(editorSource(), sourceFile());
+                if (rectifiedPage != null && !rectifiedFile().isFile()) writeBitmap(rectifiedPage, rectifiedFile());
                 writeImage(edited);
                 main.post(() -> {
                     if (token.get()) return;
-                    page = edited; sourcePage = original; pageRectified = false; editAngle = degrees; editCrop = selection; allLines = lines = List.of(); selectionStart = selectionEnd = 0;
+                    if (sourcePage == null) sourcePage = original;
+                    page = edited; pageRectified = fromRectified; editRectified = fromRectified;
+                    if (fromRectified) { rectifiedEditAngle = degrees; rectifiedEditCrop = selection; }
+                    else { editAngle = degrees; editCrop = selection; }
+                    allLines = lines = List.of(); selectionStart = selectionEnd = 0;
                     text = ""; textOrigins = new int[0]; textMode = false;
                     busy = false; status = ""; changed(); save(); read();
                 });
@@ -186,17 +213,29 @@ public final class DocumentViewModel extends AndroidViewModel {
         worker.execute(() -> {
             try {
                 if (engine == null) engine = new OcrEngine(getApplication());
-                OcrEngine.PageResult recognized = engine.readPage(source, alreadyRectified, token, (done, total) -> main.post(() -> {
+                OcrEngine.PageResult recognized = engine.readPage(source, alreadyRectified, token, (stage, done, total) -> main.post(() -> {
                     if (token.get()) return;
-                    status = total == 0 ? getApplication().getString(R.string.detecting)
-                            : getApplication().getString(R.string.recognizing, done, total);
+                    int label = switch (stage) {
+                        case NDL_DETECTION -> R.string.ndl_detecting;
+                        case NDL_RECOGNITION -> R.string.ndl_recognizing;
+                        case PADDLE_DETECTION -> R.string.paddle_detecting;
+                        case PADDLE_RECOGNITION -> R.string.paddle_recognizing;
+                        case UVDOC -> R.string.uvdoc_running;
+                    };
+                    String name = getApplication().getString(label);
+                    status = total > 0 ? getApplication().getString(R.string.ocr_progress, name, done, total) : name;
                     changed();
                 }));
                 if (token.get()) { if (recognized.image() != source) recognized.image().recycle(); return; }
                 if (recognized.image() != source) writeImage(recognized.image());
+                if (recognized.rectified()) writeBitmap(recognized.image(), rectifiedFile());
                 main.post(() -> {
                     if (token.get()) { if (recognized.image() != source) recognized.image().recycle(); return; }
                     page = recognized.image(); pageRectified = pageRectified || recognized.rectified();
+                    if (recognized.rectified()) {
+                        rectifiedPage = recognized.image(); editRectified = true;
+                        rectifiedEditAngle = 0; rectifiedEditCrop = new android.graphics.RectF(0, 0, 1, 1);
+                    }
                     allLines = recognized.lines(); rebuildLines(false);
                     status = lines.isEmpty() ? getApplication().getString(R.string.empty_result) : "";
                     busy = false; changed(); save();
@@ -322,7 +361,8 @@ public final class DocumentViewModel extends AndroidViewModel {
     public java.util.concurrent.Future<?> closePage() {
         cancel();
         page = null; sourcePage = null; pageRectified = false; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false; changed();
-        return worker.submit(() -> { new AtomicFile(imageFile()).delete(); new AtomicFile(sourceFile()).delete(); new AtomicFile(stateFile()).delete(); });
+        rectifiedPage = null; editRectified = false; rectifiedEditAngle = 0; rectifiedEditCrop = new android.graphics.RectF(0, 0, 1, 1);
+        return worker.submit(() -> { new AtomicFile(imageFile()).delete(); new AtomicFile(sourceFile()).delete(); new AtomicFile(rectifiedFile()).delete(); new AtomicFile(stateFile()).delete(); });
     }
 
     public void save() {
@@ -333,6 +373,8 @@ public final class DocumentViewModel extends AndroidViewModel {
             JSONObject state = new JSONObject().put("lines", array).put("text", text).put("textMode", textMode)
                     .put("selectionStart", selectionStart).put("selectionEnd", selectionEnd)
                     .put("paragraphText", true).put("textPanelFraction", textPanelFraction).put("pageRectified", pageRectified)
+                    .put("editRectified", editRectified).put("rectifiedEditAngle", rectifiedEditAngle)
+                    .put("rectifiedEditCrop", new JSONArray().put(rectifiedEditCrop.left).put(rectifiedEditCrop.top).put(rectifiedEditCrop.right).put(rectifiedEditCrop.bottom))
                     .put("editAngle", editAngle).put("editCrop", new JSONArray().put(editCrop.left).put(editCrop.top).put(editCrop.right).put(editCrop.bottom));
             if (textOrigins != null) {
                 JSONArray origins = new JSONArray();

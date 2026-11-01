@@ -28,10 +28,12 @@ public final class OcrHostTest {
     @Test public void nativeEngineReadsJapaneseAndEnglishAndKeepsCropCoordinates() throws Exception {
         try (OcrEngine engine = new OcrEngine(RuntimeEnvironment.getApplication())) {
             Bitmap page = fixture("horizontal.png");
-            var result = engine.read(page, new Rect(0, 0, 1200, 700), new AtomicBoolean(), (done, total) -> {});
+            var progress = new java.util.ArrayList<String>();
+            var result = engine.read(page, new Rect(0, 0, 1200, 700), new AtomicBoolean(), (stage, done, total) -> progress.add(stage + ":" + done + "/" + total));
+            assertThat(progress).containsExactly("NDL_DETECTION:0/1", "NDL_RECOGNITION:0/2", "NDL_RECOGNITION:1/2", "NDL_RECOGNITION:2/2").inOrder();
             assertThat(result).hasSize(2);
             assertThat(ReadingOrder.text(result)).isEqualTo("資料の文字をコピーする\nAndroid 16");
-            var cropped = engine.read(page, new Rect(20, 90, 1000, 220), new AtomicBoolean(), (done, total) -> {});
+            var cropped = engine.read(page, new Rect(20, 90, 1000, 220), new AtomicBoolean(), (stage, done, total) -> {});
             assertThat(ReadingOrder.text(cropped)).isEqualTo("資料の文字をコピーする");
             assertThat(cropped.get(0).top()).isAtLeast(90f);
             page.recycle();
@@ -41,7 +43,7 @@ public final class OcrHostTest {
     @Test public void nativeEngineReadsVerticalJapanese() throws Exception {
         try (OcrEngine engine = new OcrEngine(RuntimeEnvironment.getApplication())) {
             Bitmap page = fixture("vertical.png");
-            var result = engine.read(page, new Rect(0, 0, page.getWidth(), page.getHeight()), new AtomicBoolean(), (done, total) -> {});
+            var result = engine.read(page, new Rect(0, 0, page.getWidth(), page.getHeight()), new AtomicBoolean(), (stage, done, total) -> {});
             assertThat(ReadingOrder.text(result)).contains("資料");
             assertThat(result.stream().anyMatch(OcrLine::vertical)).isTrue();
             page.recycle();
@@ -52,7 +54,7 @@ public final class OcrHostTest {
         try (OcrEngine engine = new OcrEngine(RuntimeEnvironment.getApplication())) {
             Bitmap blank = Bitmap.createBitmap(800, 800, Bitmap.Config.ARGB_8888);
             blank.eraseColor(Color.WHITE);
-            assertThat(engine.read(blank, new Rect(0, 0, 800, 800), new AtomicBoolean(), (done, total) -> {})).isEmpty();
+            assertThat(engine.read(blank, new Rect(0, 0, 800, 800), new AtomicBoolean(), (stage, done, total) -> {})).isEmpty();
             blank.recycle();
         }
     }

@@ -32,7 +32,8 @@ import ai.onnxruntime.TensorInfo;
 
 /** Native ONNX inference; preprocessing and cascade follow NDLOCR-Lite 1.3.0. */
 public final class OcrEngine implements AutoCloseable {
-    public interface Progress { void update(int done, int total); }
+    public enum Stage { NDL_DETECTION, NDL_RECOGNITION, PADDLE_DETECTION, PADDLE_RECOGNITION, UVDOC }
+    public interface Progress { void update(Stage stage, int done, int total); }
     private final Context context;
     private final OrtEnvironment environment = OrtEnvironment.getEnvironment();
     private final Map<String, OrtSession> sessions = new HashMap<>();
@@ -80,12 +81,13 @@ public final class OcrEngine implements AutoCloseable {
         checkCancelled(cancelled);
         Bitmap crop = Bitmap.createBitmap(page, region.left, region.top, region.width(), region.height());
         try {
+            progress.update(Stage.NDL_DETECTION, 0, 1);
             OrtSession detector = session(DETECTOR);
             checkCancelled(cancelled);
-            progress.update(0, 0);
             List<Detection> detections = detect(crop, detector);
             List<OcrLine> lines = new ArrayList<>();
             int done = 0;
+            progress.update(Stage.NDL_RECOGNITION, 0, detections.size());
             for (Detection detection : detections) {
                 checkCancelled(cancelled);
                 Rect box = detection.box;
@@ -96,7 +98,7 @@ public final class OcrEngine implements AutoCloseable {
                 } finally { if (line != crop) line.recycle(); }
                 if (!text.isBlank()) lines.add(new OcrLine(box.left + region.left, box.top + region.top,
                         box.right + region.left, box.bottom + region.top, text, detection.kind));
-                progress.update(++done, detections.size());
+                progress.update(Stage.NDL_RECOGNITION, ++done, detections.size());
             }
             checkCancelled(cancelled);
             return ReadingOrder.sort(lines);
@@ -105,7 +107,7 @@ public final class OcrEngine implements AutoCloseable {
 
     /** One chosen route, no model race or user-facing engine selector. */
     public PageResult readPage(Bitmap page, boolean alreadyRectified, AtomicBoolean cancelled, Progress progress) throws Exception {
-        checkCancelled(cancelled); progress.update(0, 0);
+        checkCancelled(cancelled); progress.update(Stage.NDL_DETECTION, 0, 1);
         List<Detection> layout = detect(page, session(DETECTOR));
         List<OcrLine> geometry = layout.stream().map(d -> new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, "", d.kind)).toList();
         OcrRouting.Route route = alreadyRectified ? OcrRouting.Route.FLATTEN_PADDLE
@@ -127,23 +129,30 @@ public final class OcrEngine implements AutoCloseable {
             // Keep detected folios even when the general-purpose detector omits tiny text.
             for (Detection d : layout) if (d.kind == OcrLine.Kind.PAGE_NUMBER && classified.stream().noneMatch(l -> l.kind() == d.kind && l.intersects(d.box.left, d.box.top, d.box.right, d.box.bottom))) {
                 checkCancelled(cancelled);
+                progress.update(Stage.NDL_RECOGNITION, 0, 1);
                 Bitmap crop = Bitmap.createBitmap(page, d.box.left, d.box.top, d.box.width(), d.box.height());
                 String text;
                 try { text = recognize(crop, d.tier, cancelled); } finally { if (crop != page) crop.recycle(); }
                 if (!text.isBlank()) classified.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind));
+                progress.update(Stage.NDL_RECOGNITION, 1, 1);
             }
             return new PageResult(page, ReadingOrder.sort(classified), false, "paddle-long-vertical");
         }
         Bitmap target = page;
         if (route == OcrRouting.Route.FLATTEN_PADDLE && !alreadyRectified) {
+            progress.update(Stage.UVDOC, 0, 1);
             target = flatten(page);
             try {
                 checkCancelled(cancelled);
+                progress.update(Stage.UVDOC, 1, 1);
+                progress.update(Stage.NDL_DETECTION, 0, 1);
                 layout = detect(target, session(DETECTOR));
             } catch (Exception | OutOfMemoryError exception) { target.recycle(); throw exception; }
         }
         try {
             List<OcrLine> lines = new ArrayList<>(); int done = 0;
+            Stage stage = route == OcrRouting.Route.FLATTEN_PADDLE ? Stage.PADDLE_RECOGNITION : Stage.NDL_RECOGNITION;
+            progress.update(stage, 0, layout.size());
             for (Detection d : layout) {
                 checkCancelled(cancelled);
                 Bitmap crop = Bitmap.createBitmap(target, d.box.left, d.box.top, d.box.width(), d.box.height());
@@ -151,7 +160,7 @@ public final class OcrEngine implements AutoCloseable {
                 try { text = route == OcrRouting.Route.FLATTEN_PADDLE ? paddle().recognize(crop) : recognize(crop, d.tier, cancelled); }
                 finally { if (crop != target) crop.recycle(); }
                 if (!text.isBlank()) lines.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind));
-                progress.update(++done, layout.size());
+                progress.update(stage, ++done, layout.size());
             }
             checkCancelled(cancelled);
             return new PageResult(target, ReadingOrder.sort(lines), target != page,

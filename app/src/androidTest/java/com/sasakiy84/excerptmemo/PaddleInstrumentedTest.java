@@ -23,7 +23,7 @@ public final class PaddleInstrumentedTest {
         Bitmap source = fixture();
         try (OcrEngine engine = new OcrEngine(context)) {
             var paddle = new PaddleOcr(context, engine::session);
-            String text = ReadingOrder.text(paddle.read(source, new AtomicBoolean(), (done, total) -> {}));
+            String text = ReadingOrder.text(paddle.read(source, new AtomicBoolean(), (stage, done, total) -> {}));
             assertThat(text).contains("資料の文字をコピーする");
             assertThat(text.toLowerCase()).contains("android");
             android.util.Log.i("OcrNativeTest", "PP-OCR verified");

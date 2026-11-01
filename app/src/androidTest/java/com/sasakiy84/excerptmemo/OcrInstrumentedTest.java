@@ -31,13 +31,13 @@ public final class OcrInstrumentedTest {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         try (OcrEngine engine = new OcrEngine(context)) {
             Bitmap page = fixture();
-            List<OcrLine> result = engine.read(page, new Rect(0, 0, 1200, 700), new AtomicBoolean(), (done, total) -> {});
+            List<OcrLine> result = engine.read(page, new Rect(0, 0, 1200, 700), new AtomicBoolean(), (stage, done, total) -> {});
             String text = ReadingOrder.text(result);
             assertThat(text).contains("資料");
             assertThat(text).contains("コピー");
             assertThat(text.toLowerCase()).contains("android");
             assertThat(result).hasSize(2);
-            List<OcrLine> crop = engine.read(page, new Rect(20, 90, 1000, 220), new AtomicBoolean(), (done, total) -> {});
+            List<OcrLine> crop = engine.read(page, new Rect(20, 90, 1000, 220), new AtomicBoolean(), (stage, done, total) -> {});
             assertThat(ReadingOrder.text(crop)).contains("資料");
             assertThat(ReadingOrder.text(crop).toLowerCase()).doesNotContain("android");
             assertThat(crop.get(0).top()).isAtLeast(90f);
@@ -50,7 +50,7 @@ public final class OcrInstrumentedTest {
         try (OcrEngine engine = new OcrEngine(context)) {
             Bitmap blank = Bitmap.createBitmap(800, 800, Bitmap.Config.ARGB_8888);
             blank.eraseColor(Color.WHITE);
-            assertThat(engine.read(blank, new Rect(0, 0, 800, 800), new AtomicBoolean(), (done, total) -> {})).isEmpty();
+            assertThat(engine.read(blank, new Rect(0, 0, 800, 800), new AtomicBoolean(), (stage, done, total) -> {})).isEmpty();
             blank.recycle();
         }
     }
@@ -63,7 +63,7 @@ public final class OcrInstrumentedTest {
         String phrase = "資料の文字を読む";
         for (int i = 0; i < phrase.length(); i++) canvas.drawText(phrase.substring(i, i + 1), 500, 120 + i * 70, paint);
         try (OcrEngine engine = new OcrEngine(context)) {
-            List<OcrLine> result = engine.read(page, new Rect(0, 0, 800, 1000), new AtomicBoolean(), (done, total) -> {});
+            List<OcrLine> result = engine.read(page, new Rect(0, 0, 800, 1000), new AtomicBoolean(), (stage, done, total) -> {});
             assertThat(ReadingOrder.text(result)).contains("資料");
             assertThat(result.stream().anyMatch(OcrLine::vertical)).isTrue();
         }

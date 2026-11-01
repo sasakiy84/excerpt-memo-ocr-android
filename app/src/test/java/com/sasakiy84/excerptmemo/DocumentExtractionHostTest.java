@@ -171,11 +171,14 @@ public final class DocumentExtractionHostTest {
             try (var source = getClass().getResourceAsStream("/horizontal.png"); var output = new FileOutputStream(input)) {
                 source.transferTo(output);
             }
+            var statuses = new java.util.ArrayList<String>();
+            model.changes.observe(controller.get(), ignored -> statuses.add(model.status));
             model.open(Uri.fromFile(input));
             assertThat(model.busy).isTrue();
             awaitIdle(model);
             assertThat(model.status).isEmpty();
             assertThat(model.text).isEqualTo("資料の文字をコピーする\nAndroid 16");
+            assertThat(statuses).contains("NDLOCR-Lite を実行中、1/2");
             assertThat(model.selectionStart).isEqualTo(0);
             assertThat(model.selectionEnd).isEqualTo(model.text.length());
         } finally { close(controller); }

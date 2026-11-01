@@ -22,8 +22,12 @@
     <string name="ocr_failed">読み取れませんでした。もう一度お試しください。</string>
     <string name="empty_result">文字が見つかりませんでした。</string>
     <string name="loading_model">モデルを準備中…</string>
-    <string name="detecting">文字を検出中…</string>
-    <string name="recognizing">読取中 %1$d / %2$d</string>
+    <string name="ndl_detecting">NDLOCR-Lite で行を検出中</string>
+    <string name="ndl_recognizing">NDLOCR-Lite を実行中</string>
+    <string name="paddle_detecting">PP-OCRv6 small で行を検出中</string>
+    <string name="paddle_recognizing">PP-OCRv6 small を実行中</string>
+    <string name="uvdoc_running">UVDoc で補正中</string>
+    <string name="ocr_progress">%1$s、%2$d/%3$d</string>
     <string name="image_loading">画像を開いています…</string>
     <string name="result_text">読み取ったテキスト</string>
     <string name="page_description">資料画像。開始と終了のハンドルで文字を選択、ピンチで拡大。</string>
@@ -31,6 +35,8 @@
     <string name="include_ruby">ルビ</string>
     <string name="include_tables">表</string>
     <string name="edit_image">画像を調整</string>
+    <string name="original_image">元画像</string>
+    <string name="rectified_image">補正後</string>
     <string name="extraction_options">読取対象</string>
     <string name="rotation_angle">回転角度</string>
     <string name="rotate_quarter">90° 回転</string>

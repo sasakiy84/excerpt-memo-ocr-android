@@ -87,11 +87,13 @@ final class PaddleOcr {
 
     List<OcrLine> read(Bitmap image, AtomicBoolean cancelled, OcrEngine.Progress progress) throws Exception {
         ensureOpenCv();
+        progress.update(OcrEngine.Stage.PADDLE_DETECTION, 0, 1);
         List<Point[]> boxes = detect(image);
         List<OcrLine> lines = new ArrayList<>();
         Mat source = toMat(image);
         try {
             int done = 0;
+            progress.update(OcrEngine.Stage.PADDLE_RECOGNITION, 0, boxes.size());
             for (Point[] points : boxes) {
                 if (cancelled.get() || Thread.currentThread().isInterrupted()) throw new CancellationException();
                 int width = Math.max(2, (int) Math.max(distance(points[0], points[1]), distance(points[2], points[3])));
@@ -109,7 +111,7 @@ final class PaddleOcr {
                         lines.add(new OcrLine(left, top, right, bottom, text));
                     }
                 } finally { crop.release(); matrix.release(); from.release(); to.release(); }
-                progress.update(++done, boxes.size());
+                progress.update(OcrEngine.Stage.PADDLE_RECOGNITION, ++done, boxes.size());
             }
         } finally { source.release(); }
         return ReadingOrder.sort(lines);

@@ -1,1 +1,1 @@
-<resources><item name="image_editor" type="id"/><item name="rotation_slider" type="id"/><item name="apply_image_edit" type="id"/><item name="rotate_image_quarter" type="id"/></resources>
+<resources><item name="image_editor" type="id"/><item name="rotation_slider" type="id"/><item name="apply_image_edit" type="id"/><item name="rotate_image_quarter" type="id"/><item name="edit_original" type="id"/><item name="edit_rectified" type="id"/></resources>

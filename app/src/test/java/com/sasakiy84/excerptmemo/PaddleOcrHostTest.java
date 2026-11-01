@@ -22,7 +22,7 @@ public final class PaddleOcrHostTest {
             Bitmap image = BitmapFactory.decodeStream(input);
             try {
                 var paddle = new PaddleOcr(RuntimeEnvironment.getApplication(), engine::session);
-                assertThat(ReadingOrder.text(paddle.read(image, new AtomicBoolean(), (done, total) -> {})))
+                assertThat(ReadingOrder.text(paddle.read(image, new AtomicBoolean(), (stage, done, total) -> {})))
                         .isEqualTo("資料の文字をコピーする\nAndroid 16");
             } finally { image.recycle(); }
         }
@@ -32,7 +32,7 @@ public final class PaddleOcrHostTest {
             Bitmap image = BitmapFactory.decodeStream(input);
             try {
                 var paddle = new PaddleOcr(RuntimeEnvironment.getApplication(), engine::session);
-                assertThat(ReadingOrder.text(paddle.read(image, new AtomicBoolean(), (done, total) -> {}))).isEqualTo("資料の文字を読む");
+                assertThat(ReadingOrder.text(paddle.read(image, new AtomicBoolean(), (stage, done, total) -> {}))).isEqualTo("資料の文字を読む");
             } finally { image.recycle(); }
         }
     }
@@ -40,7 +40,9 @@ public final class PaddleOcrHostTest {
         try (var input = getClass().getResourceAsStream("/horizontal.png"); OcrEngine engine = new OcrEngine(RuntimeEnvironment.getApplication())) {
             Bitmap image = BitmapFactory.decodeStream(input);
             try {
-                var result = engine.readPage(image, true, new AtomicBoolean(), (done, total) -> {});
+                var progress = new java.util.ArrayList<String>();
+                var result = engine.readPage(image, true, new AtomicBoolean(), (stage, done, total) -> progress.add(stage + ":" + done + "/" + total));
+                assertThat(progress).containsExactly("NDL_DETECTION:0/1", "PADDLE_RECOGNITION:0/2", "PADDLE_RECOGNITION:1/2", "PADDLE_RECOGNITION:2/2").inOrder();
                 assertThat(result.image()).isSameInstanceAs(image);
                 assertThat(result.rectified()).isFalse();
                 assertThat(result.workflow()).isEqualTo("ndl-layout-paddle");

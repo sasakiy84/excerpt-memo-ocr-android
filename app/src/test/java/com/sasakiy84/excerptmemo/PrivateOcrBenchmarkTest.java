@@ -48,8 +48,8 @@ public final class PrivateOcrBenchmarkTest {
                         for (int run = -1; run < times.length; run++) {
                             long start = System.nanoTime();
                             OcrEngine.PageResult result = automatic
-                                    ? engine.readPage(source, false, new AtomicBoolean(), (done, total) -> {})
-                                    : new OcrEngine.PageResult(source, engine.read(source, new Rect(0, 0, source.getWidth(), source.getHeight()), new AtomicBoolean(), (done, total) -> {}), false, "ndl");
+                                    ? engine.readPage(source, false, new AtomicBoolean(), (stage, done, total) -> {})
+                                    : new OcrEngine.PageResult(source, engine.read(source, new Rect(0, 0, source.getWidth(), source.getHeight()), new AtomicBoolean(), (stage, done, total) -> {}), false, "ndl");
                             double elapsed = (System.nanoTime() - start) / 1e9;
                             if (run >= 0) times[run] = elapsed;
                             if (last != null && last.image() != source) last.image().recycle();
@@ -90,6 +90,32 @@ public final class PrivateOcrBenchmarkTest {
         }
         Files.write(new File(root, "results/java-benchmark.json").toPath(), output.toString(2).getBytes(StandardCharsets.UTF_8));
         assertThat(automaticErrors).isLessThan(baselineErrors);
+    }
+
+    @Test public void editActualUvdocResultAndRetainTheOriginalPhotograph() throws Exception {
+        String directory = System.getenv("OCR_EVALUATION_DIR");
+        Assume.assumeTrue("Set OCR_EVALUATION_DIR to run private-image checks", directory != null);
+        var app = RuntimeEnvironment.getApplication();
+        org.robolectric.Shadows.shadowOf(app).denyPermissions(android.Manifest.permission.CAMERA);
+        new android.util.AtomicFile(new File(app.getFilesDir(), "page.json")).delete();
+        var controller = org.robolectric.Robolectric.buildActivity(MainActivity.class).setup();
+        try {
+            var model = new androidx.lifecycle.ViewModelProvider(controller.get()).get(DocumentViewModel.class);
+            DocumentExtractionHostTest.awaitIdle(model);
+            model.open(android.net.Uri.fromFile(new File(directory, "input/user-03.jpg")));
+            DocumentExtractionHostTest.awaitIdle(model);
+            assertThat(model.hasRectifiedImage()).isTrue();
+            assertThat(model.editRectified).isTrue();
+            Bitmap base = model.editorSource(true);
+            assertThat(base).isNotSameInstanceAs(model.editorSource(false));
+            model.applyImageEdit(0, new android.graphics.RectF(.1f, .1f, .9f, .9f), true);
+            DocumentExtractionHostTest.awaitIdle(model);
+            assertThat(model.page.getHeight()).isEqualTo(960);
+            assertThat(model.editorSource(true)).isSameInstanceAs(base);
+            assertThat(model.editorSource(false).getHeight()).isEqualTo(1200);
+            assertThat(model.pageRectified).isTrue();
+            assertThat(model.text).isNotEmpty();
+        } finally { DocumentExtractionHostTest.close(controller); }
     }
 
     private static int[] normalized(String value) {

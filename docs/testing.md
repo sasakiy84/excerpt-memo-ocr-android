@@ -8,7 +8,7 @@ python3 scripts/verify-models.py
 python3 scripts/gradle-cloud.py --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
 ```
 
-ホスト側は標準 55 件と、外部の提供写真を使う任意の比較 1 件です。読み順・復号、実モデル OCR、選択・コピー、引用・フィルタ、画像編集、段落整形、文章ドロワー、処理経路の判定、PP-OCR と補正済みページの再読取りを確認します。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。画面画像は `app/build/reports/ui/` に出力します。
+ホスト側は標準 57 件と、外部の提供写真を使う任意の比較・編集確認 2 件です。読み順・復号、実モデル OCR、選択・コピー、引用・フィルタ、画像編集、段落整形、文章ドロワー、処理経路の判定、PP-OCR と補正済みページの再読取りを確認します。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。画面画像は `app/build/reports/ui/` に出力します。
 
 提供写真を使う任意テストの実行方法と、ランタイム・画像補間の違いは [ocr-comparison.md](ocr-comparison.md) を参照してください。写真を指定しない通常実行では、この 1 件はスキップされます。
 
@@ -52,7 +52,7 @@ UVDoc は仮想化なしのエミュレーターでは 20 分枠でも完了し�
 ## リリース APK
 
 ```sh
-python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.5.0
+python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.5.1
 "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
 "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 app/build/outputs/apk/release/app-release.apk
 ```
@@ -140,3 +140,21 @@ python3 scripts/run-device-tests.py --class-name com.sasakiy84.excerptmemo.Docum
 - Android 16 の PP-OCR 日本語・英語認識 1 件と、ドロワー・選択・コピー・画面再作成の操作 1 件: 成功。UVDoc の CPU 推論は仮想化なしのエミュレーターで 20 分の上限に達し、完走を確認できていない。試験した XNNPACK バックエンドは初期化時に異常終了したため取り除いた。配布版は CPU 実行で、実機での UVDoc の完走・速度・消費電力は未確認。
 - モデル 7 個・文字表 2 個のチェックサム、署名付き APK、前版と同じ証明書、通信権限がないこと、OpenCV を含む arm64 ライブラリの ELF と ZIP の 16 KB アラインメント: 成功。
 - このエミュレーターでは IncFS 経由の APK ページ読取りが失敗し、通常の FileBridge コピーも非常に遅かった。`--root-staging` で完全な APK を先に配置し、通常の PackageInstaller による検証・インストールを実行する。
+
+## 0.5.1 の補正後編集と進捗
+
+- 標準のホストテスト 57 件と、提供写真を使う比較・補正後編集 2 件が成功。Android 16 の切り替え・画面再作成と、選択・コピーを合わせた操作テスト 2 件も成功。
+- debug / release lint、モデル・文字表 9 ファイルのチェックサム、署名付き release APK のモデル内容・SDK・ABI・16 KB 整列を確認。前版と同じ証明書を使用。
+
+- 元画像と補正後の画像を編集の基準として切り替える。適用した範囲と角度は基準ごとに保存し、編集中の両方の設定は切り替え・Activity 再作成でも保持する。
+- UVDoc の補正画像を `rectified.png` に保存し、編集済みの `page.png` と分ける。0.5.0 の保存データでは、表示中の補正画像を最初の編集基準として引き継ぐ。元画像は `source.png` に保持する。
+- 補正後を切り抜いても補正済みフラグを維持し、NDLOCR の行検出と PP-OCR の認識だけを実行する。元画像への切り替え、新しい画像の読込み、ページを閉じたときの状態も確認する。
+- 実モデルが通知する処理段階と件数を検査し、進捗表示に「NDLOCR-Lite を実行中、1/2」が出ることを確認する。PP-OCR の行検出・認識と UVDoc の補正もそれぞれの名前で表示する。
+- ホストで編集画面を描画して確認。補正後の切り抜き、保存状態からの復元、元画像の保持は生成画像と提供写真で確認する。
+- Android の対象テストは次の 2 件。通しの 9 件すべての成功や、UVDoc 自体の実端末での性能を確認したという意味ではない。
+
+```sh
+python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
+  --class-name 'com.sasakiy84.excerptmemo.ImageEditUiTest,com.sasakiy84.excerptmemo.DocumentUiTest#selectCharactersSwitchToTextCopyAndRestoreAfterRotation' \
+  --expected-tests 2
+```
