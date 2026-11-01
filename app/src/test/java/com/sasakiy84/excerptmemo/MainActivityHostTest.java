@@ -54,8 +54,15 @@ public final class MainActivityHostTest {
             MainActivity activity = controller.get();
             DocumentExtractionHostTest.awaitIdle(new ViewModelProvider(activity).get(DocumentViewModel.class));
             DocumentViewModel model = new ViewModelProvider(activity).get(DocumentViewModel.class);
-            model.page = BitmapFactory.decodeStream(getClass().getResourceAsStream("/horizontal.png"));
-            model.allLines = List.of(new OcrLine(80, 100, 800, 180, "資料の文字をコピーする"));
+            model.page = Bitmap.createBitmap(1200, 1700, Bitmap.Config.ARGB_8888);
+            Canvas paper = new Canvas(model.page); paper.drawColor(android.graphics.Color.WHITE);
+            android.graphics.Paint ink = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+            ink.setColor(android.graphics.Color.BLACK); ink.setTextSize(48);
+            String[] paragraphs = {"地域図書館の利用調査", "調査は四月から六月まで実施した。", "利用者は資料の閲覧を主な目的とした。", "来館時間は午後に集中する傾向がある。", "今後は資料の配置と案内を見直す。"};
+            for (int i = 0; i < paragraphs.length; i++) paper.drawText(paragraphs[i], 80, 180 + i * 130, ink);
+            paper.drawText("12", 570, 1600, ink);
+            try (FileOutputStream file = new FileOutputStream("build/reports/portrait.png")) { model.page.compress(Bitmap.CompressFormat.PNG, 100, file); }
+            model.allLines = List.of(new OcrLine(80, 132, 560, 190, "地域図書館の利用調査"));
             model.busy = false;
             model.setInclusions(false, false, false);
             render(activity, "page");
@@ -63,7 +70,7 @@ public final class MainActivityHostTest {
             text.setSelection(5, 0);
             activity.findViewById(R.id.copy_button).performClick();
             assertThat(activity.getSystemService(ClipboardManager.class).getPrimaryClip().getItemAt(0).getText().toString())
-                    .isEqualTo("資料の文字");
+                    .isEqualTo("地域図書館");
             ((com.google.android.material.button.MaterialButtonToggleGroup) activity.findViewById(R.id.mode_toggle))
                     .check(R.id.text_mode);
             assertThat(activity.findViewById(R.id.page_view).getVisibility()).isEqualTo(View.GONE);

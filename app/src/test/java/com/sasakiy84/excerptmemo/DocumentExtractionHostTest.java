@@ -67,9 +67,12 @@ public final class DocumentExtractionHostTest {
             assertThat(model.text).isEqualTo("本文");
             assertThat(model.forClipboard(0, 0)).isEqualTo("本文（p. 12）");
             model.status = "文字が見つかりませんでした。";
-            controller.get().findViewById(R.id.include_page_numbers).performClick();
-            controller.get().findViewById(R.id.include_ruby).performClick();
-            controller.get().findViewById(R.id.include_tables).performClick();
+            ((com.google.android.material.appbar.MaterialToolbar) controller.get().findViewById(R.id.toolbar)).getMenu().performIdentifierAction(4, 0);
+            android.app.Dialog options = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+            options.findViewById(R.id.include_page_numbers).performClick();
+            options.findViewById(R.id.include_ruby).performClick();
+            options.findViewById(R.id.include_tables).performClick();
+            options.dismiss();
             assertThat(model.lines).hasSize(4);
             assertThat(model.status).isEmpty();
             assertThat(model.text).contains("ほんぶん");

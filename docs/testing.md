@@ -8,7 +8,7 @@ python3 scripts/verify-models.py
 python3 scripts/gradle-cloud.py --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
 ```
 
-ホスト側の 30 件は、読み順・PARSeq の復号 7 件、実モデルの OCR 3 件、起動・コピー 2 件、フィルタ・自動 OCR・引用 5 件、画像上のハンドル操作 3 件、文字境界 4 件、ページ表記 6 件です。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。横書き・縦書き・英語・空白・切り出しと座標を確認します。画面画像は `app/build/reports/ui/` に出力します。
+ホスト側の 35 件は、読み順・PARSeq の復号 7 件、実モデルの OCR 3 件、起動・コピー 2 件、フィルタ・自動 OCR・引用 5 件、画像上のハンドル操作 3 件、文字境界 4 件、ページ表記 6 件、画像編集 5 件です。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。横書き・縦書き・英語・空白・切り出しと座標を確認します。画面画像は `app/build/reports/ui/` に出力します。
 
 ## Android 16
 
@@ -33,7 +33,7 @@ python3 scripts/run-device-tests.py
 ## リリース APK
 
 ```sh
-python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.2.1
+python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.3.0
 "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
 "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 app/build/outputs/apk/release/app-release.apk
 ```
@@ -77,3 +77,11 @@ python3 scripts/run-device-tests.py --class-name com.sasakiy84.excerptmemo.Docum
 - ローカルのホストテスト 30 件、Android 16 の選択・切替・コピー・再作成テスト 1 件: 成功。
 - ホストで 411 dp / 360 dp 幅のページ・テキスト・カメラ画面を描画して確認。Android エミュレーターの実画面でも確認。
 - debug / release lint、署名、モデル、APK メタデータ、16 KB アラインメント: 成功。
+
+## 0.3.0 の画像調整
+
+- 通常画面から読取対象の設定行を外し、縦長の資料で表示を確認。
+- 画像調整は回転後の座標で切り抜く。プレビューと出力に同じ変換を使い、角・辺・範囲移動、微調整、90° 回転に対応。
+- 元画像を private 領域に保持し、適用後もリセットで再編集できる。調整値・元画像は保存し、ページを閉じると両画像を削除する。
+- ローカルのホストテスト 35 件: 成功。回転と切り抜きの画素検査、実モデルでの切り抜き後の自動読取りとリセット、ハンドル操作、画面再作成時の編集値保持、キャンセルを確認。
+- Android 16 の操作テスト 1 件: 成功。文字選択・コピー・画面再作成に加え、画像調整画面の起動、角度変更、取消を確認。

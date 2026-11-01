@@ -56,7 +56,7 @@ public final class MainActivity extends AppCompatActivity {
     private ProcessCameraProvider cameraProvider;
     private ImageCapture imageCapture;
     private boolean cameraStarting, capturing, updatingText;
-    private static final int MENU_ALL = 1, MENU_ROTATE = 2, MENU_LICENSES = 3;
+    private static final int MENU_ALL = 1, MENU_ROTATE = 2, MENU_LICENSES = 3, MENU_FILTERS = 4;
     private OnBackPressedCallback back;
     private final ActivityResultLauncher<String> permission = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(), granted -> {
@@ -86,11 +86,15 @@ public final class MainActivity extends AppCompatActivity {
         document = new ViewModelProvider(this).get(DocumentViewModel.class);
         toolbar = findViewById(R.id.toolbar);
         toolbar.getMenu().add(Menu.NONE, MENU_ALL, Menu.NONE, R.string.all).setIcon(R.drawable.ic_select_all).setIconTintList(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.excerpt_ink))).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
-        toolbar.getMenu().add(Menu.NONE, MENU_ROTATE, Menu.NONE, R.string.rotate);
+        toolbar.getMenu().add(Menu.NONE, MENU_ROTATE, Menu.NONE, R.string.edit_image).setIcon(R.drawable.ic_edit_image).setIconTintList(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.excerpt_ink))).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        toolbar.getMenu().add(Menu.NONE, MENU_FILTERS, Menu.NONE, R.string.extraction_options);
         toolbar.getMenu().add(Menu.NONE, MENU_LICENSES, Menu.NONE, R.string.licenses);
         toolbar.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == MENU_ALL) pageView.selectAll();
-            else if (item.getItemId() == MENU_ROTATE) document.rotate();
+            else if (item.getItemId() == MENU_ROTATE) {
+                if (getSupportFragmentManager().findFragmentByTag("image-edit") == null) new ImageEditDialog().show(getSupportFragmentManager(), "image-edit");
+            }
+            else if (item.getItemId() == MENU_FILTERS) showExtractionOptions();
             else showLicenses();
             return true;
         });
@@ -99,14 +103,6 @@ public final class MainActivity extends AppCompatActivity {
         preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
         pageView = findViewById(R.id.page_view);
         pageView.setSelectionListener((start, end) -> document.select(start, end));
-        for (int id : new int[]{R.id.include_page_numbers, R.id.include_ruby, R.id.include_tables}) {
-            ((android.widget.CompoundButton) findViewById(id)).setOnCheckedChangeListener((button, checked) -> {
-                if (updatingText) return;
-                document.setInclusions(((android.widget.CompoundButton) findViewById(R.id.include_page_numbers)).isChecked(),
-                        ((android.widget.CompoundButton) findViewById(R.id.include_ruby)).isChecked(),
-                        ((android.widget.CompoundButton) findViewById(R.id.include_tables)).isChecked());
-            });
-        }
         resultText = findViewById(R.id.result_text);
         resultText.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence value, int start, int count, int after) {}
@@ -162,19 +158,12 @@ public final class MainActivity extends AppCompatActivity {
         toolbar.setNavigationIcon(hasPage ? ContextCompat.getDrawable(this, R.drawable.ic_back) : null);
         toolbar.setNavigationContentDescription(R.string.back);
         toolbar.getMenu().findItem(MENU_ALL).setVisible(hasPage).setEnabled(!document.busy);
-        toolbar.getMenu().findItem(MENU_ROTATE).setVisible(hasPage).setEnabled(!document.busy);
+        toolbar.getMenu().findItem(MENU_ROTATE).setVisible(hasPage);
+        toolbar.getMenu().findItem(MENU_FILTERS).setVisible(hasPage).setEnabled(!document.busy);
         findViewById(R.id.import_button).setEnabled(!document.busy && !capturing);
         if (hasPage) {
             stopCamera();
             pageView.setPage(document.page, document.lines, document.selectionStart, document.selectionEnd);
-            updatingText = true;
-            int[] filterIds = {R.id.include_page_numbers, R.id.include_ruby, R.id.include_tables};
-            boolean[] inclusions = {document.includePageNumbers, document.includeRuby, document.includeTables};
-            for (int i = 0; i < filterIds.length; i++) {
-                android.widget.CompoundButton filter = findViewById(filterIds[i]);
-                filter.setChecked(inclusions[i]); filter.setEnabled(!document.busy);
-            }
-            updatingText = false;
             pageView.setEnabled(!document.busy);
             pageView.setVisibility(document.textMode ? View.GONE : View.VISIBLE);
             boolean hasText = !document.lines.isEmpty() || !document.text.isEmpty();
@@ -185,7 +174,7 @@ public final class MainActivity extends AppCompatActivity {
             float editorWeight = document.textMode ? 1 : 0;
             if (editorLayout.height != editorHeight || editorLayout.weight != editorWeight) {
                 editorLayout.height = editorHeight; editorLayout.weight = editorWeight;
-                resultText.setMaxLines(document.textMode ? Integer.MAX_VALUE : 3);
+                resultText.setMaxLines(document.textMode ? Integer.MAX_VALUE : 2);
                 resultText.setLayoutParams(editorLayout);
             }
             if (!resultText.getText().toString().equals(document.text)) {
@@ -215,6 +204,20 @@ public final class MainActivity extends AppCompatActivity {
                 document.status = "";
             }
         }
+    }
+
+    private void showExtractionOptions() {
+        var sheet = new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+        View content = getLayoutInflater().inflate(R.layout.extraction_options, null);
+        sheet.setContentView(content);
+        int[] ids = {R.id.include_page_numbers, R.id.include_ruby, R.id.include_tables};
+        boolean[] values = {document.includePageNumbers, document.includeRuby, document.includeTables};
+        for (int i = 0; i < ids.length; i++) ((android.widget.CompoundButton) content.findViewById(ids[i])).setChecked(values[i]);
+        for (int id : ids) ((android.widget.CompoundButton) content.findViewById(id)).setOnCheckedChangeListener((button, checked) ->
+                document.setInclusions(((android.widget.CompoundButton) content.findViewById(ids[0])).isChecked(),
+                        ((android.widget.CompoundButton) content.findViewById(ids[1])).isChecked(),
+                        ((android.widget.CompoundButton) content.findViewById(ids[2])).isChecked()));
+        sheet.show();
     }
 
     private void requestCamera() {

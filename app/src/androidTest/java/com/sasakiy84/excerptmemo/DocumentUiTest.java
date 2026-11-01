@@ -97,6 +97,17 @@ public final class DocumentUiTest {
                 assertThat(model.selectionStart).isEqualTo(0);
                 assertThat(model.selectionEnd).isEqualTo("資料の文字をコピーする".length());
             });
+            scenario.onActivity(activity -> {
+                ((com.google.android.material.appbar.MaterialToolbar) activity.findViewById(R.id.toolbar)).getMenu().performIdentifierAction(2, 0);
+                activity.getSupportFragmentManager().executePendingTransactions();
+                ImageEditDialog dialog = (ImageEditDialog) activity.getSupportFragmentManager().findFragmentByTag("image-edit");
+                assertThat(dialog.requireDialog().isShowing()).isTrue();
+                assertThat((android.view.View) dialog.requireView().findViewById(R.id.image_editor)).isNotNull();
+                ((com.google.android.material.slider.Slider) dialog.requireView().findViewById(R.id.rotation_slider)).setValue(7.5f);
+                dialog.dismiss();
+                activity.getSupportFragmentManager().executePendingTransactions();
+                assertThat(new ViewModelProvider(activity).get(DocumentViewModel.class).text).isEqualTo("資料の文字をコピーする");
+            });
         }
     }
 

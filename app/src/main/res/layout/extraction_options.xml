@@ -1,0 +1,6 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
+    <TextView android:layout_width="match_parent" android:layout_height="48dp" android:text="@string/extraction_options" android:textSize="20sp" android:textColor="?attr/colorOnSurface" />
+    <com.google.android.material.checkbox.MaterialCheckBox android:id="@+id/include_page_numbers" android:layout_width="match_parent" android:layout_height="56dp" android:text="@string/include_page_numbers" />
+    <com.google.android.material.checkbox.MaterialCheckBox android:id="@+id/include_ruby" android:layout_width="match_parent" android:layout_height="56dp" android:text="@string/include_ruby" />
+    <com.google.android.material.checkbox.MaterialCheckBox android:id="@+id/include_tables" android:layout_width="match_parent" android:layout_height="56dp" android:text="@string/include_tables" />
+</LinearLayout>

@@ -54,7 +54,7 @@
                 android:contentDescription="@string/page_description" />
             <EditText android:id="@+id/result_text" android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginHorizontal="16dp" android:layout_marginTop="12dp" android:gravity="top|start"
-                android:minHeight="64dp" android:maxLines="3" android:padding="14dp"
+                android:minHeight="56dp" android:maxLines="2" android:padding="14dp"
                 android:background="@drawable/excerpt_text_background" android:textColor="@color/excerpt_ink"
                 android:textColorHint="@color/excerpt_muted" android:lineSpacingExtra="4dp"
                 android:inputType="textMultiLine|textCapSentences" android:textSize="17sp"
@@ -66,21 +66,6 @@
             <com.google.android.material.progressindicator.LinearProgressIndicator android:id="@+id/progress"
                 android:layout_width="match_parent" android:layout_height="3dp" android:indeterminate="true"
                 android:layout_marginHorizontal="20dp" android:layout_marginTop="8dp" android:visibility="gone" />
-            <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="4dp" android:fillViewport="true" android:scrollbars="none">
-                <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:orientation="horizontal" android:gravity="center" android:paddingHorizontal="12dp">
-                    <com.google.android.material.checkbox.MaterialCheckBox android:id="@+id/include_page_numbers"
-                        style="@style/Widget.Excerpt.Filter" android:layout_width="wrap_content" android:layout_height="48dp"
-                        android:text="@string/include_page_numbers" />
-                    <com.google.android.material.checkbox.MaterialCheckBox android:id="@+id/include_ruby"
-                        style="@style/Widget.Excerpt.Filter" android:layout_width="wrap_content" android:layout_height="48dp"
-                        android:layout_marginStart="12dp" android:text="@string/include_ruby" />
-                    <com.google.android.material.checkbox.MaterialCheckBox android:id="@+id/include_tables"
-                        style="@style/Widget.Excerpt.Filter" android:layout_width="wrap_content" android:layout_height="48dp"
-                        android:layout_marginStart="12dp" android:text="@string/include_tables" />
-                </LinearLayout>
-            </HorizontalScrollView>
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal" android:gravity="center_vertical"
                 android:paddingHorizontal="16dp" android:paddingTop="4dp" android:paddingBottom="12dp">

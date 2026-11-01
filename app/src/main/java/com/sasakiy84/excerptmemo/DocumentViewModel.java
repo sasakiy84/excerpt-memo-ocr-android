@@ -28,6 +28,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class DocumentViewModel extends AndroidViewModel {
     public final MutableLiveData<Integer> changes = new MutableLiveData<>(0);
     public Bitmap page;
+    private Bitmap sourcePage;
+    public float editAngle;
+    public android.graphics.RectF editCrop = new android.graphics.RectF(0, 0, 1, 1);
     public List<OcrLine> lines = List.of();
     public List<OcrLine> allLines = List.of();
     private TextGeometry cachedGeometry = new TextGeometry(lines);
@@ -54,6 +57,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                 File state = stateFile();
                 if (image.isFile() && state.isFile()) {
                     Bitmap restored = decode(ImageDecoder.createSource(image));
+                    Bitmap source = sourceFile().isFile() ? decode(ImageDecoder.createSource(sourceFile())) : restored;
                     JSONObject json = new JSONObject(new String(new AtomicFile(state).readFully(), StandardCharsets.UTF_8));
                     List<OcrLine> restoredLines = new ArrayList<>();
                     JSONArray array = json.getJSONArray("lines");
@@ -64,7 +68,10 @@ public final class DocumentViewModel extends AndroidViewModel {
                                 OcrLine.Kind.valueOf(line.optString(5, "TEXT"))));
                     }
                     main.post(() -> {
-                        page = restored; allLines = restoredLines;
+                        page = restored; sourcePage = source; allLines = restoredLines;
+                        editAngle = (float) json.optDouble("editAngle", 0);
+                        JSONArray savedCrop = json.optJSONArray("editCrop");
+                        if (savedCrop != null && savedCrop.length() == 4) editCrop = new android.graphics.RectF((float)savedCrop.optDouble(0), (float)savedCrop.optDouble(1), (float)savedCrop.optDouble(2), (float)savedCrop.optDouble(3));
                         rebuildLines(false);
                         if (json.has("selectionStart")) {
                             TextGeometry geometry = geometry();
@@ -89,6 +96,8 @@ public final class DocumentViewModel extends AndroidViewModel {
     }
 
     private File imageFile() { return new File(getApplication().getFilesDir(), "page.png"); }
+    private File sourceFile() { return new File(getApplication().getFilesDir(), "source.png"); }
+    public Bitmap editorSource() { return sourcePage == null ? page : sourcePage; }
     private File stateFile() { return new File(getApplication().getFilesDir(), "page.json"); }
     private void changed() { changes.setValue(changes.getValue() + 1); }
 
@@ -112,9 +121,10 @@ public final class DocumentViewModel extends AndroidViewModel {
                 Bitmap decoded = decode(ImageDecoder.createSource(getApplication().getContentResolver(), uri));
                 if (token.get()) return;
                 writeImage(decoded);
+                writeBitmap(decoded, sourceFile());
                 main.post(() -> {
                     if (token.get()) return;
-                    page = decoded; allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false;
+                    page = decoded; sourcePage = decoded; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false;
                     status = ""; busy = false; changed(); save(); read();
                 });
             } catch (Exception | OutOfMemoryError exception) {
@@ -124,8 +134,10 @@ public final class DocumentViewModel extends AndroidViewModel {
         });
     }
 
-    private void writeImage(Bitmap bitmap) throws Exception {
-        AtomicFile target = new AtomicFile(imageFile());
+    private void writeImage(Bitmap bitmap) throws Exception { writeBitmap(bitmap, imageFile()); }
+
+    private void writeBitmap(Bitmap bitmap, File file) throws Exception {
+        AtomicFile target = new AtomicFile(file);
         FileOutputStream stream = target.startWrite();
         try {
             if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) throw new java.io.IOException("Cannot save image");
@@ -133,23 +145,26 @@ public final class DocumentViewModel extends AndroidViewModel {
         } catch (Exception exception) { target.failWrite(stream); throw exception; }
     }
 
-    public void rotate() {
+    public void applyImageEdit(float degrees, android.graphics.RectF crop) {
         if (busy || page == null) return;
         AtomicBoolean token = new AtomicBoolean(); cancellation = token;
-        Bitmap original = page;
-        busy = true; changed();
+        Bitmap original = editorSource();
+        android.graphics.RectF selection = new android.graphics.RectF(crop);
+        busy = true; status = getApplication().getString(R.string.image_loading); changed();
         worker.execute(() -> {
             try {
-                Matrix rotation = new Matrix(); rotation.postRotate(90);
-                Bitmap rotated = Bitmap.createBitmap(original, 0, 0, original.getWidth(), original.getHeight(), rotation, true);
-                writeImage(rotated);
+                Bitmap edited = ImageEdits.apply(original, degrees, selection);
+                if (token.get()) return;
+                if (!sourceFile().isFile()) writeBitmap(original, sourceFile());
+                writeImage(edited);
                 main.post(() -> {
                     if (token.get()) return;
-                    page = rotated; allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false;
+                    page = edited; sourcePage = original; editAngle = degrees; editCrop = selection; allLines = lines = List.of(); selectionStart = selectionEnd = 0;
+                    text = ""; textOrigins = new int[0]; textMode = false;
                     busy = false; status = ""; changed(); save(); read();
                 });
             } catch (Exception | OutOfMemoryError exception) {
-                Log.e("ExcerptMemo", "Rotation failed", exception);
+                Log.e("ExcerptMemo", "Image edit failed", exception);
                 main.post(() -> finishError(token, R.string.image_failed));
             }
         });
@@ -294,8 +309,8 @@ public final class DocumentViewModel extends AndroidViewModel {
 
     public java.util.concurrent.Future<?> closePage() {
         cancel();
-        page = null; allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false; changed();
-        return worker.submit(() -> { new AtomicFile(imageFile()).delete(); new AtomicFile(stateFile()).delete(); });
+        page = null; sourcePage = null; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false; changed();
+        return worker.submit(() -> { new AtomicFile(imageFile()).delete(); new AtomicFile(sourceFile()).delete(); new AtomicFile(stateFile()).delete(); });
     }
 
     public void save() {
@@ -304,7 +319,8 @@ public final class DocumentViewModel extends AndroidViewModel {
             JSONArray array = new JSONArray();
             for (OcrLine line : allLines) array.put(new JSONArray().put(line.left()).put(line.top()).put(line.right()).put(line.bottom()).put(line.text()).put(line.kind().name()));
             JSONObject state = new JSONObject().put("lines", array).put("text", text).put("textMode", textMode)
-                    .put("selectionStart", selectionStart).put("selectionEnd", selectionEnd);
+                    .put("selectionStart", selectionStart).put("selectionEnd", selectionEnd)
+                    .put("editAngle", editAngle).put("editCrop", new JSONArray().put(editCrop.left).put(editCrop.top).put(editCrop.right).put(editCrop.bottom));
             if (textOrigins != null) {
                 JSONArray origins = new JSONArray();
                 for (int origin : textOrigins) origins.put(origin);

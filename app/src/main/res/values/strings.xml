@@ -30,4 +30,11 @@
     <string name="include_page_numbers">ページ番号</string>
     <string name="include_ruby">ルビ</string>
     <string name="include_tables">表</string>
+    <string name="edit_image">画像を調整</string>
+    <string name="extraction_options">読取対象</string>
+    <string name="rotation_angle">回転角度</string>
+    <string name="rotate_quarter">90° 回転</string>
+    <string name="reset">リセット</string>
+    <string name="apply">適用</string>
+    <string name="crop_description">画像の切り抜き。四隅と辺をドラッグして範囲を調整。</string>
 </resources>
