@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/ndl-lab/ndlocr-lite",
+  "commit": "e57f7c6bd9cfb3de5f12f008e71ad2122bd44bfd",
+  "version": "1.3.0",
+  "files": {
+    "models/parseq-ndl-24x384-50-tiny-300epoch-tegaki3-r8data-202604.onnx": "49cea9db4552f19eb05c8ee202fcf74714977749b2f4c9376b127fde41b07a99",
+    "models/parseq-ndl-24x768-100-tiny-153epoch-tegaki3-r8data-202604.onnx": "06462b0dbd5b0b8508545c8c3d485cf20dbf4ffa652fe145e69c9e7457080602",
+    "models/deim-s-1024x1024.onnx": "c156ce0c4e704bc3bf7e4016d0a87b949cffa8b3724f4b4cc696b8284c3c7373",
+    "models/parseq-ndl-24x256-30-tiny-189epoch-tegaki3-r8data-202604.onnx": "9e651bae4c1a4d5254da1127e86e82e21ef62d5339b37e62d4a3d3d30831772d",
+    "charset.json": "65792fc82672346886359ac9ce88ec751d0a74169352c8383dcc01eda09d2af4"
+  }
+}

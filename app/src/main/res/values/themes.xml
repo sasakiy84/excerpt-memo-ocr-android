@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.ExcerptMemo" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#315E51</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#53645B</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
+        <item name="android:windowLightNavigationBar">?attr/isLightTheme</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

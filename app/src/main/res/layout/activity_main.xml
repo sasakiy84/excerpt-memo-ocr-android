@@ -1,0 +1,67 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical">
+    <com.google.android.material.appbar.MaterialToolbar android:id="@+id/toolbar"
+        android:layout_width="match_parent" android:layout_height="?attr/actionBarSize"
+        app:title="@string/app_name" />
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <LinearLayout android:id="@+id/camera_panel" android:layout_width="match_parent"
+            android:layout_height="match_parent" android:orientation="vertical">
+            <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+                android:background="#151B18">
+                <androidx.camera.view.PreviewView android:id="@+id/preview"
+                    android:layout_width="match_parent" android:layout_height="match_parent" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/permission_button"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_gravity="center" android:text="@string/camera_permission" android:visibility="gone" />
+            </FrameLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:gravity="center" android:padding="12dp" android:orientation="horizontal">
+                <com.google.android.material.button.MaterialButton android:id="@+id/import_button"
+                    style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp"
+                    android:layout_weight="1" android:layout_height="64dp" android:text="@string/import_image" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/shutter"
+                    android:layout_width="0dp" android:layout_weight="1" android:layout_height="64dp"
+                    android:layout_marginStart="12dp" android:text="@string/camera" android:contentDescription="@string/capture" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/document_panel" android:layout_width="match_parent"
+            android:layout_height="match_parent" android:orientation="vertical" android:visibility="gone">
+            <com.google.android.material.button.MaterialButtonToggleGroup android:id="@+id/mode_toggle"
+                android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center"
+                app:singleSelection="true" app:selectionRequired="true" app:checkedButton="@id/page_mode">
+                <com.google.android.material.button.MaterialButton android:id="@+id/page_mode"
+                    style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="wrap_content"
+                    android:layout_height="48dp" android:text="@string/page" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/text_mode"
+                    style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="wrap_content"
+                    android:layout_height="48dp" android:text="@string/text" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+            <com.sasakiy84.excerptmemo.PageView android:id="@+id/page_view"
+                android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="2"
+                android:contentDescription="@string/page_description" />
+            <EditText android:id="@+id/result_text" android:layout_width="match_parent" android:layout_height="0dp"
+                android:layout_weight="1" android:layout_marginHorizontal="16dp" android:gravity="top|start"
+                android:inputType="textMultiLine|textCapSentences" android:textSize="18sp"
+                android:scrollbars="vertical" android:padding="12dp" android:importantForAutofill="no"
+                android:hint="@string/result_text"
+                android:visibility="gone" />
+            <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingHorizontal="20dp" android:paddingVertical="8dp" android:accessibilityLiveRegion="polite"
+                android:visibility="gone" />
+            <com.google.android.material.progressindicator.LinearProgressIndicator android:id="@+id/progress"
+                android:layout_width="match_parent" android:layout_height="4dp" android:indeterminate="true"
+                android:visibility="gone" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:paddingHorizontal="12dp" android:paddingVertical="8dp">
+                <com.google.android.material.button.MaterialButton android:id="@+id/read_button"
+                    style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp"
+                    android:layout_weight="1" android:layout_height="56dp" android:text="@string/read" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/copy_button"
+                    android:layout_width="0dp" android:layout_weight="1" android:layout_height="56dp"
+                    android:layout_marginStart="12dp" android:text="@string/copy" android:enabled="false" />
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+</LinearLayout>

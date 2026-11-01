@@ -1,0 +1,11 @@
+.gradle/
+.idea/
+**/build/
+local.properties
+*.jks
+*.keystore
+dist/
+.secrets/
+*.hprof
+
+__pycache__/

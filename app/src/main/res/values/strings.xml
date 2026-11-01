@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">抜粋</string>
+    <string name="camera">撮影</string>
+    <string name="capture">シャッター</string>
+    <string name="import_image">画像を開く</string>
+    <string name="read">読み取る</string>
+    <string name="reread">再読取</string>
+    <string name="copy">コピー</string>
+    <string name="page">ページ</string>
+    <string name="text">テキスト</string>
+    <string name="all">全体</string>
+    <string name="rotate">回転</string>
+    <string name="back">戻る</string>
+    <string name="cancel">キャンセル</string>
+    <string name="licenses">ライセンス</string>
+    <string name="camera_permission">カメラを許可</string>
+    <string name="permission_rationale">資料を撮影するためにカメラを使います。</string>
+    <string name="settings">設定を開く</string>
+    <string name="camera_unavailable">カメラを起動できませんでした。</string>
+    <string name="capture_failed">撮影できませんでした。もう一度お試しください。</string>
+    <string name="image_failed">画像を開けませんでした。</string>
+    <string name="ocr_failed">読み取れませんでした。範囲を小さくして、もう一度お試しください。</string>
+    <string name="empty_result">文字が見つかりませんでした。</string>
+    <string name="loading_model">モデルを準備中…</string>
+    <string name="detecting">文字を検出中…</string>
+    <string name="recognizing">読取中 %1$d / %2$d</string>
+    <string name="image_loading">画像を開いています…</string>
+    <string name="result_text">読み取ったテキスト</string>
+    <string name="page_description">資料画像。ドラッグで範囲選択、タップで行選択、ピンチで拡大。</string>
+</resources>
