@@ -296,8 +296,8 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void showLicenses() {
-        String[] names = {"NDLOCR-Lite", "NDLOCR-Lite dependencies", "DINOv3", "ONNX Runtime", "ONNX Runtime dependencies", "AndroidX / Material"};
-        String[] files = {"NOTICE.txt", "NDLOCR-Lite-LICENCE_DEPENDENCEIES.txt", "DINOv3-LICENSE.md", "ONNX-Runtime-LICENSE.txt", "ONNX-Runtime-ThirdPartyNotices.txt", "Android-LICENSE.txt"};
+        String[] names = {"NDLOCR-Lite", "NDLOCR-Lite dependencies", "DINOv3", "ONNX Runtime", "ONNX Runtime dependencies", "AndroidX / Material", "PaddleOCR / UVDoc", "PaddleOCR license", "UVDoc license", "OpenCV"};
+        String[] files = {"NOTICE.txt", "NDLOCR-Lite-LICENCE_DEPENDENCEIES.txt", "DINOv3-LICENSE.md", "ONNX-Runtime-LICENSE.txt", "ONNX-Runtime-ThirdPartyNotices.txt", "Android-LICENSE.txt", "PaddleOCR-NOTICE.txt", "PaddleOCR-LICENSE.txt", "UVDoc-LICENSE.txt", "OpenCV-LICENSE.txt"};
         new MaterialAlertDialogBuilder(this).setTitle(R.string.licenses).setItems(names, (dialog, which) -> {
             try (InputStream input = getAssets().open("licenses/" + files[which])) {
                 TextView text = new TextView(this);

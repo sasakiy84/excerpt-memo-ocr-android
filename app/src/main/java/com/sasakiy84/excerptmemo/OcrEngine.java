@@ -37,6 +37,8 @@ public final class OcrEngine implements AutoCloseable {
     private final OrtEnvironment environment = OrtEnvironment.getEnvironment();
     private final Map<String, OrtSession> sessions = new HashMap<>();
     private final String[] charset;
+    private PaddleOcr paddle;
+    public record PageResult(Bitmap image, List<OcrLine> lines, boolean rectified, String workflow) {}
     private static final String DETECTOR = "deim-s-1024x1024.onnx";
     private static final String SHORT = "parseq-ndl-24x256-30-tiny-189epoch-tegaki3-r8data-202604.onnx";
     private static final String MEDIUM = "parseq-ndl-24x384-50-tiny-300epoch-tegaki3-r8data-202604.onnx";
@@ -51,7 +53,7 @@ public final class OcrEngine implements AutoCloseable {
         }
     }
 
-    private OrtSession session(String name) throws IOException, OrtException {
+    OrtSession session(String name) throws IOException, OrtException {
         if (sessions.containsKey(name)) return sessions.get(name);
         File directory = new File(context.getNoBackupFilesDir(), "models-v1.3.0");
         if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Cannot create model directory");
@@ -64,7 +66,7 @@ public final class OcrEngine implements AutoCloseable {
             Files.move(temporary.toPath(), model.toPath(), StandardCopyOption.REPLACE_EXISTING);
         }
         try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
-            options.setIntraOpNumThreads(name.equals(DETECTOR) ? Math.min(4, Runtime.getRuntime().availableProcessors()) : 2);
+            options.setIntraOpNumThreads((name.equals(DETECTOR) || name.equals(PaddleOcr.DETECTOR)) ? Math.min(4, Runtime.getRuntime().availableProcessors()) : 2);
             options.setInterOpNumThreads(1);
             OrtSession loaded = environment.createSession(model.toString(), options);
             sessions.put(name, loaded);
@@ -99,6 +101,87 @@ public final class OcrEngine implements AutoCloseable {
             checkCancelled(cancelled);
             return ReadingOrder.sort(lines);
         } finally { if (crop != page) crop.recycle(); }
+    }
+
+    /** One chosen route, no model race or user-facing engine selector. */
+    public PageResult readPage(Bitmap page, boolean alreadyRectified, AtomicBoolean cancelled, Progress progress) throws Exception {
+        checkCancelled(cancelled); progress.update(0, 0);
+        List<Detection> layout = detect(page, session(DETECTOR));
+        List<OcrLine> geometry = layout.stream().map(d -> new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, "", d.kind)).toList();
+        OcrRouting.Route route = alreadyRectified ? OcrRouting.Route.FLATTEN_PADDLE
+                : OcrRouting.choose(geometry, page.getWidth(), page.getHeight(), true);
+        checkCancelled(cancelled);
+        if (route == OcrRouting.Route.PADDLE) {
+            List<OcrLine> recognized = paddle().read(page, cancelled, progress);
+            List<OcrLine> classified = new ArrayList<>();
+            for (OcrLine line : recognized) {
+                OcrLine.Kind kind = OcrLine.Kind.TEXT;
+                float best = .5f;
+                for (OcrLine detected : geometry) {
+                    if (detected.kind() == OcrLine.Kind.TEXT) continue;
+                    float ratio = OcrRouting.categoryOverlap(line, detected);
+                    if (ratio > best) { best = ratio; kind = detected.kind(); }
+                }
+                classified.add(new OcrLine(line.left(), line.top(), line.right(), line.bottom(), line.text(), kind));
+            }
+            // Keep detected folios even when the general-purpose detector omits tiny text.
+            for (Detection d : layout) if (d.kind == OcrLine.Kind.PAGE_NUMBER && classified.stream().noneMatch(l -> l.kind() == d.kind && l.intersects(d.box.left, d.box.top, d.box.right, d.box.bottom))) {
+                checkCancelled(cancelled);
+                Bitmap crop = Bitmap.createBitmap(page, d.box.left, d.box.top, d.box.width(), d.box.height());
+                String text;
+                try { text = recognize(crop, d.tier, cancelled); } finally { if (crop != page) crop.recycle(); }
+                if (!text.isBlank()) classified.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind));
+            }
+            return new PageResult(page, ReadingOrder.sort(classified), false, "paddle-long-vertical");
+        }
+        Bitmap target = page;
+        if (route == OcrRouting.Route.FLATTEN_PADDLE && !alreadyRectified) {
+            target = flatten(page);
+            try {
+                checkCancelled(cancelled);
+                layout = detect(target, session(DETECTOR));
+            } catch (Exception | OutOfMemoryError exception) { target.recycle(); throw exception; }
+        }
+        try {
+            List<OcrLine> lines = new ArrayList<>(); int done = 0;
+            for (Detection d : layout) {
+                checkCancelled(cancelled);
+                Bitmap crop = Bitmap.createBitmap(target, d.box.left, d.box.top, d.box.width(), d.box.height());
+                String text;
+                try { text = route == OcrRouting.Route.FLATTEN_PADDLE ? paddle().recognize(crop) : recognize(crop, d.tier, cancelled); }
+                finally { if (crop != target) crop.recycle(); }
+                if (!text.isBlank()) lines.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind));
+                progress.update(++done, layout.size());
+            }
+            checkCancelled(cancelled);
+            return new PageResult(target, ReadingOrder.sort(lines), target != page,
+                    route != OcrRouting.Route.FLATTEN_PADDLE ? "ndl"
+                    : alreadyRectified ? "ndl-layout-paddle" : "uvdoc-ndl-layout-paddle");
+        } catch (Exception | OutOfMemoryError exception) { if (target != page) target.recycle(); throw exception; }
+    }
+
+    private PaddleOcr paddle() throws Exception {
+        if (paddle == null) paddle = new PaddleOcr(context, this::session);
+        return paddle;
+    }
+
+    Bitmap flatten(Bitmap page) throws Exception {
+        int w = page.getWidth(), h = page.getHeight(), size = w * h;
+        int[] pixels = new int[size]; page.getPixels(pixels, 0, w, 0, 0, w, h);
+        float[] values = new float[size * 3];
+        for (int c = 0; c < 3; c++) for (int i = 0; i < size; i++) values[c * size + i] = ((pixels[i] >> (c * 8)) & 255) / 255f;
+        OrtSession session = session("uvdoc.onnx");
+        try (OnnxTensor input = OnnxTensor.createTensor(environment, FloatBuffer.wrap(values), new long[]{1, 3, h, w});
+             OrtSession.Result result = session.run(Map.of(session.getInputNames().iterator().next(), input))) {
+            FloatBuffer output = ((OnnxTensor) result.get(0)).getFloatBuffer();
+            for (int i = 0; i < size; i++) {
+                int b = Math.max(0, Math.min(255, (int)(output.get(i) * 255)));
+                int g = Math.max(0, Math.min(255, (int)(output.get(size + i) * 255)));
+                int r = Math.max(0, Math.min(255, (int)(output.get(size * 2 + i) * 255)));
+                pixels[i] = 0xFF000000 | r << 16 | g << 8 | b;
+            }
+        }
+        return Bitmap.createBitmap(pixels, w, h, Bitmap.Config.ARGB_8888);
     }
 
     private static void checkCancelled(AtomicBoolean cancelled) {

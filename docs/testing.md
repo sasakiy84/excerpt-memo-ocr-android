@@ -8,7 +8,9 @@ python3 scripts/verify-models.py
 python3 scripts/gradle-cloud.py --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
 ```
 
-ホスト側の 46 件は、読み順・PARSeq の復号 7 件、実モデルの OCR 3 件、起動・コピー 2 件、フィルタ・自動 OCR・引用 6 件、画像上のハンドル操作 3 件、文字境界 4 件、ページ表記 6 件、画像編集 5 件、段落整形 9 件、文章ドロワー 1 件です。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。横書き・縦書き・英語・空白・切り出しと座標を確認します。画面画像は `app/build/reports/ui/` に出力します。
+ホスト側は標準 55 件と、外部の提供写真を使う任意の比較 1 件です。読み順・復号、実モデル OCR、選択・コピー、引用・フィルタ、画像編集、段落整形、文章ドロワー、処理経路の判定、PP-OCR と補正済みページの再読取りを確認します。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。画面画像は `app/build/reports/ui/` に出力します。
+
+提供写真を使う任意テストの実行方法と、ランタイム・画像補間の違いは [ocr-comparison.md](ocr-comparison.md) を参照してください。写真を指定しない通常実行では、この 1 件はスキップされます。
 
 ## Android 16
 
@@ -17,7 +19,7 @@ python3 scripts/gradle-cloud.py --no-daemon testDebugUnitTest lintDebug assemble
 ```sh
 bash scripts/setup-device.sh
 bash scripts/start-device.sh
-python3 scripts/run-device-tests.py
+python3 scripts/run-device-tests.py --root-staging
 ```
 
 端末が十分高速なら `connectedDebugAndroidTest` も使えます。上記スクリプトはビルド済みの同じテスト APK を直接実行します。実行件数と JUnit の成功・失敗を検査し、未実行や途中終了も失敗にします。
@@ -26,6 +28,23 @@ python3 scripts/run-device-tests.py
 
 `start-device.sh` はソフトウェア実行時の OS 起動が監視タイムアウトで再起動されるのを防ぐため、エミュレーター内の `ro.hw_timeout_multiplier` を 20 にして Android フレームワークを再起動します。この設定は APK には入りません。
 
+クラウドでは Android 16 の AOSP イメージ、AVD `excerpt-aosp`、`emulator-5556` を使います。`--root-staging` は root 化された検証用エミュレーター向けで、転送済みの完全な APK を PackageInstaller の領域へ配置します。Android の署名検証、SELinux、インストール時の検査は保持します。実端末など root が使えない環境では `--serial <端末ID> --no-incremental` を指定してください。
+
+incremental install を使う場合、配信元 APK は `ANDROID_USER_HOME/test-apks/` に内容ハッシュ付きで保持します。後のビルドが未読込のモデルブロックを書き換えないためです。
+
+ソフトウェア実行で変更箇所を確認するときは、対象を指定できます。
+
+```sh
+python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
+  --class-name com.sasakiy84.excerptmemo.PaddleInstrumentedTest --expected-tests 2
+python3 scripts/run-device-tests.py --reuse-app --no-ui-automation \
+  --class-name com.sasakiy84.excerptmemo.DocumentUiTest#selectCharactersSwitchToTextCopyAndRestoreAfterRotation \
+  --expected-tests 1
+```
+
+新モデルの端末テストは 480 × 280 px の生成画像を使う互換性確認で、速度比較には使用しません。PP-OCR と UVDoc は独立したテストにして、それぞれの結果とタイムアウトを記録します。
+UVDoc は仮想化なしのエミュレーターでは 20 分枠でも完了しなかったため、機能確認の上限を 60 分にしています。実行時間の評価は提供写真を使うホスト側の比較テストで行います。
+
 端末テストでは同梱モデルの日本語・英語・縦書き認識、空白画像、切り出しと座標、文字のタップ・範囲のドラッグ、テキスト画面、コピー、画面再作成、カメラ撮影と戻る操作を確認します。画像の認識を含む通しのテストもあります。
 
 テスト用の画像は Android のフォントで描画しています。撮影の確認にはエミュレーターの仮想カメラを使います。実機カメラでの画質と処理時間は別途確認が必要です。
@@ -33,14 +52,14 @@ python3 scripts/run-device-tests.py
 ## リリース APK
 
 ```sh
-python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.4.1
+python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.5.0
 "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
 "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 app/build/outputs/apk/release/app-release.apk
 ```
 
-パッケージ名、バージョン、min/target SDK 36、通信権限がないこと、4 つのモデル、arm64 ライブラリ、ELF と ZIP の 16 KB アラインメント、署名を確認します。
+パッケージ名、バージョン、min/target SDK 36、通信権限がないこと、モデル 7 個と文字表 2 個のチェックサム、モデル量の 2 倍上限、arm64 ライブラリ、ELF と ZIP の 16 KB アラインメント、署名を確認します。
 
-## リリース前の確認
+## 初版のリリース前の確認
 
 - モデル・文字表 5 ファイルのチェックサム確認: 成功
 - ホスト側の 30 件（実モデル OCR・画面操作を含む）: 成功
@@ -111,3 +130,13 @@ python3 scripts/run-device-tests.py --class-name com.sasakiy84.excerptmemo.Docum
 - ローカルのホストテスト 46 件と debug / release lint: 成功。512 / 144 / 48 px とテーマアイコンの描画を確認。
 - Android 16 エミュレーターに更新 APK をインストールし、ホーム画面とアプリ一覧で丸型アイコンと「方解抄」の表示を確認。
 - モデル、APK メタデータ・アプリラベル、署名証明書、16 KB アラインメントの検査: 成功。
+
+## 0.5.0 の OCR と配色
+
+- 標準のホストテスト 55 件と提供写真の比較 1 件: 最終コードで 56 件すべて成功。外部画像を使う任意の比較は、通常実行ではスキップし、`OCR_EVALUATION_DIR` を指定して実行する。
+- PP-OCRv6 small の実モデルで横書き・縦書きを確認。補正済みページを再度変形せず、PP 認識を維持することと、手動編集で補正済みフラグをリセットすることを確認。
+- 提供画像の重複を除いた 3 枚・10 抜粋・647 字では、アプリの Java コードで抜粋 CER が 12.21% から 1.24% へ低下。全 3 枚と縮小版で、時間が現行の 2 倍未満であることを確認。ホスト CPU の値であり、物理端末の性能値ではない。詳細は [比較レポート](ocr-comparison.md)。
+- debug / release lint: エラー 0 件。乳白色と琥珀色の明色・暗色の画面、選択ハンドル、コピー操作をホストで描画して確認。
+- Android 16 の PP-OCR 日本語・英語認識 1 件と、ドロワー・選択・コピー・画面再作成の操作 1 件: 成功。UVDoc の CPU 推論は仮想化なしのエミュレーターで 20 分の上限に達し、完走を確認できていない。試験した XNNPACK バックエンドは初期化時に異常終了したため取り除いた。配布版は CPU 実行で、実機での UVDoc の完走・速度・消費電力は未確認。
+- モデル 7 個・文字表 2 個のチェックサム、署名付き APK、前版と同じ証明書、通信権限がないこと、OpenCV を含む arm64 ライブラリの ELF と ZIP の 16 KB アラインメント: 成功。
+- このエミュレーターでは IncFS 経由の APK ページ読取りが失敗し、通常の FileBridge コピーも非常に遅かった。`--root-staging` で完全な APK を先に配置し、通常の PackageInstaller による検証・インストールを実行する。

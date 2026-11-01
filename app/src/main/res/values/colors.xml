@@ -1,11 +1,14 @@
 <resources>
-    <color name="excerpt_background">#FAFBF8</color>
-    <color name="excerpt_panel">#F0F3ED</color>
-    <color name="excerpt_canvas">#E7ECE5</color>
-    <color name="excerpt_selected">#DCECDF</color>
-    <color name="excerpt_ink">#1B2922</color>
-    <color name="excerpt_muted">#53645A</color>
-    <color name="excerpt_outline">#CCD7CD</color>
-    <color name="excerpt_primary">#245C45</color>
+    <color name="excerpt_background">#F7F4ED</color>
+    <color name="excerpt_panel">#F0E9DD</color>
+    <color name="excerpt_canvas">#E6DECF</color>
+    <color name="excerpt_selected">#F1DFC0</color>
+    <color name="excerpt_ink">#302A21</color>
+    <color name="excerpt_muted">#6B5B45</color>
+    <color name="excerpt_outline">#D8CAB4</color>
+    <color name="excerpt_primary">#96611F</color>
     <color name="excerpt_on_primary">#FFFFFF</color>
+    <color name="excerpt_handle">#96611F</color>
+    <color name="excerpt_line_hint">#0C96611F</color>
+    <color name="excerpt_highlight">#55D7A653</color>
 </resources>

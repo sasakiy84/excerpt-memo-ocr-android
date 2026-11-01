@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Check the shipped APK rather than inferring manifest/ABI settings from Gradle."""
 import os
+import json
+import hashlib
 from pathlib import Path
 import re
 import subprocess
@@ -20,7 +22,16 @@ assert "android.permission.INTERNET" not in permissions
 assert "android.permission.CAMERA" in permissions
 with zipfile.ZipFile(apk) as archive:
     models = [name for name in archive.namelist() if name.endswith(".onnx")]
-    assert len(models) == 4
+    manifest = json.loads(archive.read("assets/models-manifest.json"))
+    files = dict(manifest["files"])
+    for source in manifest.get("additional_sources", []):
+        files.update(source["files"])
+    expected_models = {"assets/" + name for name in files if name.endswith(".onnx")}
+    assert set(models) == expected_models
+    for name, digest in files.items():
+        assert hashlib.sha256(archive.read("assets/" + name)).hexdigest() == digest, name
+    total_bytes = sum(archive.getinfo(name).file_size for name in models)
+    assert total_bytes <= 2 * 157110896, "Model workflow exceeds twice the NDLOCR-Lite baseline"
     for name in models:
         assert archive.getinfo(name).compress_type == zipfile.ZIP_STORED
     assert any(name.startswith("lib/arm64-v8a/") and name.endswith("libonnxruntime.so") for name in archive.namelist())

@@ -55,9 +55,11 @@ public final class ImageEditsTest {
             var model = new androidx.lifecycle.ViewModelProvider(controller.get()).get(DocumentViewModel.class);
             DocumentExtractionHostTest.awaitIdle(model);
             model.page = BitmapFactory.decodeStream(getClass().getResourceAsStream("/horizontal.png"));
+            model.pageRectified = true;
             model.applyImageEdit(0, new RectF(0, .1f, 1, .36f));
             DocumentExtractionHostTest.awaitIdle(model);
             assertThat(model.page.getHeight()).isEqualTo(182);
+            assertThat(model.pageRectified).isFalse();
             assertThat(model.text).contains("資料");
             assertThat(model.text.toLowerCase()).doesNotContain("android");
             model.applyImageEdit(0, new RectF(0, 0, 1, 1));

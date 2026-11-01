@@ -36,13 +36,13 @@ public final class ImageEditView extends View {
         canvas.drawRect(frame.left, box.bottom, frame.right, frame.bottom, paint);
         canvas.drawRect(frame.left, box.top, box.left, box.bottom, paint);
         canvas.drawRect(box.right, box.top, frame.right, box.bottom, paint);
-        paint.setColor(0x80606A64); paint.setStrokeWidth(dp(1)); paint.setStyle(Paint.Style.STROKE);
+        paint.setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(androidx.core.content.ContextCompat.getColor(getContext(), R.color.excerpt_muted), 128)); paint.setStrokeWidth(dp(1)); paint.setStyle(Paint.Style.STROKE);
         canvas.drawRect(box, paint);
         for (int i = 1; i < 3; i++) {
             canvas.drawLine(box.left + box.width() * i / 3, box.top, box.left + box.width() * i / 3, box.bottom, paint);
             canvas.drawLine(box.left, box.top + box.height() * i / 3, box.right, box.top + box.height() * i / 3, paint);
         }
-        paint.setColor(0xFF245C45); paint.setStrokeWidth(dp(4));
+        paint.setColor(androidx.core.content.ContextCompat.getColor(getContext(), R.color.excerpt_handle)); paint.setStrokeWidth(dp(4));
         for (float x : new float[]{box.left, box.right}) for (float y : new float[]{box.top, box.bottom}) {
             canvas.drawLine(x, y, x + (x == box.left ? dp(20) : -dp(20)), y, paint);
             canvas.drawLine(x, y, x, y + (y == box.top ? dp(20) : -dp(20)), paint);

@@ -8,5 +8,32 @@
     "models/deim-s-1024x1024.onnx": "c156ce0c4e704bc3bf7e4016d0a87b949cffa8b3724f4b4cc696b8284c3c7373",
     "models/parseq-ndl-24x256-30-tiny-189epoch-tegaki3-r8data-202604.onnx": "9e651bae4c1a4d5254da1127e86e82e21ef62d5339b37e62d4a3d3d30831772d",
     "charset.json": "65792fc82672346886359ac9ce88ec751d0a74169352c8383dcc01eda09d2af4"
-  }
+  },
+  "additional_sources": [
+    {
+      "repository": "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx",
+      "revision": "28fe5895c24fd108c19eb3e8479f4ab385fbfc62",
+      "license": "Apache-2.0",
+      "files": {
+        "models/ppocrv6-small-det.onnx": "d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e"
+      }
+    },
+    {
+      "repository": "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx",
+      "revision": "b8f84f0b80c529de40b4fbb3544b84fa7233a513",
+      "license": "Apache-2.0",
+      "files": {
+        "models/ppocrv6-small-rec.onnx": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+        "ppocrv6-charset.json": "679f4f4cbbb4f762e84fae998e02c08a556afbd115968104ca3b4aeee5cb2b19"
+      }
+    },
+    {
+      "repository": "https://huggingface.co/PaddlePaddle/UVDoc_onnx",
+      "revision": "3bcf535371727d11e783101f79a504c68848aae3",
+      "license": "Apache-2.0",
+      "files": {
+        "models/uvdoc.onnx": "54cab30dc2cf347b4f3d6971c833b1c3d84f5ef17280f1f6d15796bff20e63d6"
+      }
+    }
+  ]
 }

@@ -99,10 +99,10 @@ public final class PageView extends View {
         canvas.drawBitmap(bitmap, 0, 0, paint);
         for (int i = 0; i < geometry.lines.size(); i++) {
             OcrLine line = geometry.lines.get(i);
-            paint.setColor(0x0C245C45);
+            paint.setColor(androidx.core.content.ContextCompat.getColor(getContext(), R.color.excerpt_line_hint));
             canvas.drawRect(line.left(), line.top(), line.right(), line.bottom(), paint);
             RectF selected = geometry.highlight(i, selectionStart, selectionEnd);
-            paint.setColor(0x4D5CB989); canvas.drawRect(selected, paint);
+            paint.setColor(androidx.core.content.ContextCompat.getColor(getContext(), R.color.excerpt_highlight)); canvas.drawRect(selected, paint);
         }
         canvas.restore();
         if (selectionStart < selectionEnd) { drawHandle(canvas, false); drawHandle(canvas, true); }
@@ -111,7 +111,7 @@ public final class PageView extends View {
     private void drawHandle(Canvas canvas, boolean end) {
         PointF edge = screenPoint(geometry.endpoint(end ? selectionEnd : selectionStart, end));
         PointF center = handleCenter(end);
-        paint.setColor(0xFF245C45); paint.setStrokeWidth(dp(2));
+        paint.setColor(androidx.core.content.ContextCompat.getColor(getContext(), R.color.excerpt_handle)); paint.setStrokeWidth(dp(2));
         canvas.drawLine(edge.x, edge.y - dp(10), edge.x, edge.y, paint);
         canvas.drawLine(edge.x, edge.y, center.x, center.y, paint);
         canvas.drawCircle(center.x, center.y, dp(9), paint);

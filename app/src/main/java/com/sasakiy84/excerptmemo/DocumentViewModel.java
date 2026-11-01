@@ -29,6 +29,7 @@ public final class DocumentViewModel extends AndroidViewModel {
     public final MutableLiveData<Integer> changes = new MutableLiveData<>(0);
     public Bitmap page;
     private Bitmap sourcePage;
+    public boolean pageRectified;
     public float editAngle;
     public android.graphics.RectF editCrop = new android.graphics.RectF(0, 0, 1, 1);
     public List<OcrLine> lines = List.of();
@@ -70,6 +71,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                     }
                     main.post(() -> {
                         page = restored; sourcePage = source; allLines = restoredLines;
+                        pageRectified = json.optBoolean("pageRectified");
                         editAngle = (float) json.optDouble("editAngle", 0);
                         JSONArray savedCrop = json.optJSONArray("editCrop");
                         if (savedCrop != null && savedCrop.length() == 4) editCrop = new android.graphics.RectF((float)savedCrop.optDouble(0), (float)savedCrop.optDouble(1), (float)savedCrop.optDouble(2), (float)savedCrop.optDouble(3));
@@ -127,7 +129,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                 writeBitmap(decoded, sourceFile());
                 main.post(() -> {
                     if (token.get()) return;
-                    page = decoded; sourcePage = decoded; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false;
+                    page = decoded; sourcePage = decoded; pageRectified = false; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false;
                     status = ""; busy = false; changed(); save(); read();
                 });
             } catch (Exception | OutOfMemoryError exception) {
@@ -162,7 +164,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                 writeImage(edited);
                 main.post(() -> {
                     if (token.get()) return;
-                    page = edited; sourcePage = original; editAngle = degrees; editCrop = selection; allLines = lines = List.of(); selectionStart = selectionEnd = 0;
+                    page = edited; sourcePage = original; pageRectified = false; editAngle = degrees; editCrop = selection; allLines = lines = List.of(); selectionStart = selectionEnd = 0;
                     text = ""; textOrigins = new int[0]; textMode = false;
                     busy = false; status = ""; changed(); save(); read();
                 });
@@ -179,19 +181,23 @@ public final class DocumentViewModel extends AndroidViewModel {
         Rect crop = new Rect(0, 0, page.getWidth(), page.getHeight());
         if (!crop.intersect(0, 0, page.getWidth(), page.getHeight()) || crop.width() < 2 || crop.height() < 2) return;
         Bitmap source = page;
+        boolean alreadyRectified = pageRectified;
         busy = true; status = getApplication().getString(R.string.loading_model); changed();
         worker.execute(() -> {
             try {
                 if (engine == null) engine = new OcrEngine(getApplication());
-                List<OcrLine> recognized = engine.read(source, crop, token, (done, total) -> main.post(() -> {
+                OcrEngine.PageResult recognized = engine.readPage(source, alreadyRectified, token, (done, total) -> main.post(() -> {
                     if (token.get()) return;
                     status = total == 0 ? getApplication().getString(R.string.detecting)
                             : getApplication().getString(R.string.recognizing, done, total);
                     changed();
                 }));
+                if (token.get()) { if (recognized.image() != source) recognized.image().recycle(); return; }
+                if (recognized.image() != source) writeImage(recognized.image());
                 main.post(() -> {
-                    if (token.get()) return;
-                    allLines = recognized; rebuildLines(false);
+                    if (token.get()) { if (recognized.image() != source) recognized.image().recycle(); return; }
+                    page = recognized.image(); pageRectified = pageRectified || recognized.rectified();
+                    allLines = recognized.lines(); rebuildLines(false);
                     status = lines.isEmpty() ? getApplication().getString(R.string.empty_result) : "";
                     busy = false; changed(); save();
                 });
@@ -315,7 +321,7 @@ public final class DocumentViewModel extends AndroidViewModel {
 
     public java.util.concurrent.Future<?> closePage() {
         cancel();
-        page = null; sourcePage = null; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false; changed();
+        page = null; sourcePage = null; pageRectified = false; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false; changed();
         return worker.submit(() -> { new AtomicFile(imageFile()).delete(); new AtomicFile(sourceFile()).delete(); new AtomicFile(stateFile()).delete(); });
     }
 
@@ -326,7 +332,7 @@ public final class DocumentViewModel extends AndroidViewModel {
             for (OcrLine line : allLines) array.put(new JSONArray().put(line.left()).put(line.top()).put(line.right()).put(line.bottom()).put(line.text()).put(line.kind().name()));
             JSONObject state = new JSONObject().put("lines", array).put("text", text).put("textMode", textMode)
                     .put("selectionStart", selectionStart).put("selectionEnd", selectionEnd)
-                    .put("paragraphText", true).put("textPanelFraction", textPanelFraction)
+                    .put("paragraphText", true).put("textPanelFraction", textPanelFraction).put("pageRectified", pageRectified)
                     .put("editAngle", editAngle).put("editCrop", new JSONArray().put(editCrop.left).put(editCrop.top).put(editCrop.right).put(editCrop.bottom));
             if (textOrigins != null) {
                 JSONArray origins = new JSONArray();
