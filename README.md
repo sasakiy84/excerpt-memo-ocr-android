@@ -15,6 +15,8 @@ Java 21、Android SDK 36、Build Tools 36.0.0 を使います。
 
 クラウド環境は `bash scripts/setup-cloud.sh` で準備します。以降は `source /workspace/android-dev/env.sh` を実行し、`python3 scripts/gradle-cloud.py` を Gradle の代わりに使います。
 
+検証範囲と端末テストの状況は [docs/testing.md](docs/testing.md) に記録しています。
+
 ## リリース
 
 GitHub Actions の repository secrets に次の値を設定します。

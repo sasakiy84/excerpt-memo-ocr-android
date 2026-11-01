@@ -150,7 +150,7 @@ public final class MainActivity extends AppCompatActivity {
         findViewById(R.id.camera_panel).setVisibility(hasPage ? View.GONE : View.VISIBLE);
         findViewById(R.id.document_panel).setVisibility(hasPage ? View.VISIBLE : View.GONE);
         back.setEnabled(hasPage || document.busy);
-        toolbar.setNavigationIcon(hasPage ? R.drawable.ic_back : 0);
+        toolbar.setNavigationIcon(hasPage ? ContextCompat.getDrawable(this, R.drawable.ic_back) : null);
         toolbar.setNavigationContentDescription(R.string.back);
         toolbar.getMenu().findItem(MENU_ALL).setVisible(hasPage).setEnabled(!document.busy);
         toolbar.getMenu().findItem(MENU_ROTATE).setVisible(hasPage).setEnabled(!document.busy);
@@ -211,7 +211,7 @@ public final class MainActivity extends AppCompatActivity {
                 cameraProvider = future.get();
                 Preview cameraPreview = new Preview.Builder().build();
                 cameraPreview.setSurfaceProvider(preview.getSurfaceProvider());
-                imageCapture = new ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                imageCapture = new ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                         .setTargetRotation(preview.getDisplay().getRotation()).build();
                 CameraSelector selector = cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)
                         ? CameraSelector.DEFAULT_BACK_CAMERA : CameraSelector.DEFAULT_FRONT_CAMERA;
@@ -268,7 +268,7 @@ public final class MainActivity extends AppCompatActivity {
     private void copy() {
         String text = resultText.getText().toString();
         int start = resultText.getSelectionStart(), end = resultText.getSelectionEnd();
-        if (start >= 0 && end > start) text = text.substring(start, end);
+        if (start >= 0 && end >= 0 && end != start) text = text.substring(Math.min(start, end), Math.max(start, end));
         if (!text.isBlank()) getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText(getString(R.string.app_name), text));
     }
 

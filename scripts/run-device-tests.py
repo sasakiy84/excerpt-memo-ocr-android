@@ -11,6 +11,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--serial", default="emulator-5554")
 parser.add_argument("--expected-tests", type=int, default=6)
 parser.add_argument("--reuse-app", action="store_true", help="Reuse the matching debug APK already installed on this device")
+parser.add_argument("--class-name", help="Select an AndroidJUnit test class")
+parser.add_argument("--no-ui-automation", action="store_true", help="For tests that do not access UI automation")
 arguments = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 adb = str(Path(os.environ["ANDROID_HOME"]) / "platform-tools/adb")
@@ -24,10 +26,15 @@ if not arguments.reuse_app:
 for apk in apks:
     if not apk.is_file():
         sys.exit("Build assembleDebug assembleDebugAndroidTest first")
-    subprocess.run([*device, "install", "--no-streaming", "-r", "-t", str(apk)], check=True, timeout=1200)
+    mode = "--incremental" if Path(str(apk) + ".idsig").is_file() else "--no-streaming"
+    subprocess.run([*device, "install", mode, "-r", "-t", str(apk)], check=True, timeout=1200)
 
-command = [*device, "shell", "am", "instrument", "-w", "-r",
-           "com.sasakiy84.excerptmemo.test/androidx.test.runner.AndroidJUnitRunner"]
+command = [*device, "shell", "am", "instrument", "-w", "-r"]
+if arguments.class_name:
+    command += ["-e", "class", arguments.class_name]
+if arguments.no_ui_automation:
+    command += ["-e", "localUiAutomation", "false"]
+command += ["com.sasakiy84.excerptmemo.test/com.sasakiy84.excerptmemo.LocalTestRunner"]
 output = []
 with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1) as process:
     for line in process.stdout:

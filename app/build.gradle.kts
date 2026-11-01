@@ -15,8 +15,9 @@ android {
         targetSdk = 36
         versionCode = major * 1_000_000 + minor * 1_000 + patch
         versionName = releaseVersion
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.sasakiy84.excerptmemo.LocalTestRunner"
     }
+    signingConfigs.getByName("debug") { enableV4Signing = true }
     if (storePath != null) signingConfigs {
         create("release") {
             storeFile = file(storePath)
@@ -42,22 +43,44 @@ android {
     lint { abortOnError = true }
 }
 
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED", "--add-opens=java.base/java.io=ALL-UNNAMED")
+    val testHome = gradle.gradleUserHomeDir.resolve("robolectric-home")
+    doFirst { testHome.mkdirs() }
+    systemProperty("user.home", testHome.absolutePath)
+    systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+    for (key in listOf("http.proxyHost", "http.proxyPort", "https.proxyHost", "https.proxyPort")) {
+        System.getProperty(key)?.let { systemProperty(key, it) }
+    }
+    maxHeapSize = "3g"
+}
+
 dependencies {
     implementation("com.google.android.material:material:1.13.0")
     implementation("androidx.activity:activity:1.11.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel:2.9.4")
     implementation("androidx.lifecycle:lifecycle-livedata:2.9.4")
-    implementation("androidx.camera:camera-camera2:1.5.0")
-    implementation("androidx.camera:camera-lifecycle:1.5.0")
-    implementation("androidx.camera:camera-view:1.5.0")
+    implementation("androidx.camera:camera-camera2:1.6.2")
+    implementation("androidx.camera:camera-lifecycle:1.6.2")
+    implementation("androidx.camera:camera-view:1.6.2")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.24.3")
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.google.truth:truth:1.4.4")
-    androidTestImplementation("androidx.test:runner:1.6.2")
-    androidTestImplementation("androidx.test:rules:1.6.1")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    testImplementation("org.robolectric:robolectric:4.17")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test:rules:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation("com.google.truth:truth:1.4.4")
+}
+
+// Host OCR tests use the same ONNX Java API and native CPU kernels on Linux.
+// APKs and instrumented tests continue to use the Android runtime artifact.
+configurations.matching { it.name.contains("UnitTest") }.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute(module("com.microsoft.onnxruntime:onnxruntime-android"))
+            .using(module("com.microsoft.onnxruntime:onnxruntime:1.24.3"))
+    }
 }
 
 val verifyReleaseSigning by tasks.registering {

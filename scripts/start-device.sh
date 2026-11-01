@@ -28,4 +28,5 @@ adb -s "$serial" shell settings put global watchdog_timeout_millis 60000
 adb -s "$serial" shell settings put global window_animation_scale 0
 adb -s "$serial" shell settings put global transition_animation_scale 0
 adb -s "$serial" shell settings put global animator_duration_scale 0
+adb -s "$serial" shell settings put global cached_apps_freezer disabled
 echo 'Android 16 emulator is ready'

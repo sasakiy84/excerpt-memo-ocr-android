@@ -1,0 +1,86 @@
+package com.sasakiy84.excerptmemo;
+
+import static com.google.common.truth.Truth.assertThat;
+import android.Manifest;
+import android.content.ClipboardManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Rect;
+import android.view.View;
+import android.widget.EditText;
+import androidx.lifecycle.ViewModelProvider;
+import com.google.android.material.appbar.MaterialToolbar;
+import java.util.List;
+import java.util.Set;
+import java.io.File;
+import java.io.FileOutputStream;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
+import org.robolectric.Shadows;
+import org.robolectric.annotation.Config;
+import org.robolectric.annotation.GraphicsMode;
+
+@RunWith(RobolectricTestRunner.class)
+@Config(sdk = 36, qualifiers = "w411dp-h731dp-420dpi")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+public final class MainActivityHostTest {
+    @Before public void cameraRequiresExplicitPermission() {
+        Shadows.shadowOf(RuntimeEnvironment.getApplication()).denyPermissions(Manifest.permission.CAMERA);
+    }
+
+    @Test public void firstLaunchShowsCameraWithoutTryingToLoadDrawableZero() throws Exception {
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        try {
+            MainActivity activity = controller.get();
+            assertThat(activity.findViewById(R.id.camera_panel).getVisibility()).isEqualTo(View.VISIBLE);
+            assertThat(((MaterialToolbar) activity.findViewById(R.id.toolbar)).getNavigationIcon()).isNull();
+            render(activity, "camera");
+        } finally { controller.pause().stop().destroy(); }
+    }
+
+    @Test public void copyHonorsReverseTextSelection() throws Exception {
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        try {
+            MainActivity activity = controller.get();
+            DocumentViewModel model = new ViewModelProvider(activity).get(DocumentViewModel.class);
+            model.page = BitmapFactory.decodeStream(getClass().getResourceAsStream("/horizontal.png"));
+            model.lines = List.of(new OcrLine(80, 100, 800, 180, "資料の文字をコピーする"));
+            model.busy = false;
+            model.select(new Rect(0, 0, 1200, 700), Set.of(0));
+            render(activity, "page");
+            EditText text = activity.findViewById(R.id.result_text);
+            text.setSelection(5, 0);
+            activity.findViewById(R.id.copy_button).performClick();
+            assertThat(activity.getSystemService(ClipboardManager.class).getPrimaryClip().getItemAt(0).getText().toString())
+                    .isEqualTo("資料の文字");
+            ((com.google.android.material.button.MaterialButtonToggleGroup) activity.findViewById(R.id.mode_toggle))
+                    .check(R.id.text_mode);
+            assertThat(activity.findViewById(R.id.page_view).getVisibility()).isEqualTo(View.GONE);
+            render(activity, "text");
+        } finally { controller.pause().stop().destroy(); }
+    }
+
+    private static void render(MainActivity activity, String name) throws Exception {
+        View root = activity.findViewById(R.id.root);
+        root.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(1920, View.MeasureSpec.EXACTLY));
+        root.layout(0, 0, 1080, 1920);
+        Bitmap bitmap = Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        android.util.TypedValue background = new android.util.TypedValue();
+        activity.getTheme().resolveAttribute(android.R.attr.colorBackground, background, true);
+        canvas.drawColor(background.data);
+        root.draw(canvas);
+        File directory = new File("build/reports/ui");
+        if (!directory.isDirectory() && !directory.mkdirs()) throw new java.io.IOException("Cannot create screenshot directory");
+        try (FileOutputStream output = new FileOutputStream(new File(directory, name + ".png"))) {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output);
+        }
+        bitmap.recycle();
+    }
+}

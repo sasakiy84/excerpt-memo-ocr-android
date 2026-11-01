@@ -8,7 +8,7 @@ python3 scripts/verify-models.py
 python3 scripts/gradle-cloud.py --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
 ```
 
-単体テストでは横書き・縦書き・段組みの読み順、範囲の交差、PARSeq の終端トークン・繰り返し文字・補助漢字を確認します。
+ホスト側の 12 件は、読み順・PARSeq の復号 7 件、実モデルの OCR 3 件、起動・選択・コピーの画面テスト 2 件です。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。横書き・縦書き・英語・空白・切り出しと座標を確認します。画面画像は `app/build/reports/ui/` に出力します。
 
 ## Android 16
 
@@ -17,10 +17,10 @@ python3 scripts/gradle-cloud.py --no-daemon testDebugUnitTest lintDebug assemble
 ```sh
 bash scripts/setup-device.sh
 bash scripts/start-device.sh
-python3 scripts/gradle-cloud.py --no-daemon connectedDebugAndroidTest
+python3 scripts/run-device-tests.py
 ```
 
-低速環境で Gradle の端末検出がタイムアウトする場合は、ビルド済みの同じテスト APK を `python3 scripts/run-device-tests.py` で直接実行できます。実行件数と JUnit の成功・失敗を検査し、未実行や途中終了も失敗にします。
+端末が十分高速なら `connectedDebugAndroidTest` も使えます。上記スクリプトはビルド済みの同じテスト APK を直接実行します。実行件数と JUnit の成功・失敗を検査し、未実行や途中終了も失敗にします。
 
 テストと画面確認はローカルで実行します。GitHub Actions は署名付き APK のビルドとリリース公開に使います。
 
@@ -43,9 +43,11 @@ python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.1.
 ## 初版の記録
 
 - モデル・文字表 5 ファイルのチェックサム確認: 成功
-- 単体テスト 7 件: 成功
+- ホスト側の 12 件（実モデル OCR・画面操作を含む）: 成功
 - debug / release lint: エラー 0 件
 - 署名付き arm64 APK とメタデータ・署名・16 KB アラインメント確認: 成功
-- 端末テスト 6 件と画面確認: ローカルで実行中
+- ホスト画面 3 種と Android のカメラプレビュー・撮影 JPEG: 画像を確認
+- Android 16 の端末テスト 6 件: 通しの成功は未確認。ローカルの仮想化なしエミュレーターで、Android の `libcamera_metadata.so` 内の SIGSEGV と推論の長時間実行が発生。CameraX 1.6.2 に更新し、撮影を低遅延モードに変更
+- 実機でのカメラ動作・推論速度: 未確認
 
-ローカルの仮想化なしエミュレーターでは APK の署名検証に長時間かかっています。転送したデバッグ APK の SHA-256 は元ファイルと一致しています。
+デバッグ APK は V4 署名付き incremental install に対応し、署名検証を保持します。端末側のテストは未実行・途中終了・件数不一致も失敗として扱います。
