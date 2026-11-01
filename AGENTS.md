@@ -8,4 +8,5 @@
 - クラウド: `source /workspace/android-dev/env.sh`。Gradle は `python3 scripts/gradle-cloud.py` 経由で実行する。プロキシと TLS 検証を保持する。
 - 必須確認: `python3 scripts/verify-models.py`、`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest`。OCR/操作の変更は Android 16 の `connectedDebugAndroidTest` も実行する。
 - 署名情報とトークンをログ、Git、公開アセットへ入れない。
+- テストと画面確認はローカルで実行する。GitHub Actions は署名付き APK のビルドとリリース公開だけに使う。
 - リリース版は `ANDROID_KEYSTORE_PATH` と `ANDROID_KEYSTORE_PASSWORD` が必要。alias は `excerpt-memo-release`。

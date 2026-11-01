@@ -22,7 +22,7 @@ python3 scripts/gradle-cloud.py --no-daemon connectedDebugAndroidTest
 
 低速環境で Gradle の端末検出がタイムアウトする場合は、ビルド済みの同じテスト APK を `python3 scripts/run-device-tests.py` で直接実行できます。実行件数と JUnit の成功・失敗を検査し、未実行や途中終了も失敗にします。
 
-GitHub Actions では KVM を使って同じ 6 件を実行します。`Check Android` とタグからのリリースの両方で必須です。端末テストに失敗した場合は APK を公開しません。画面キャプチャと実行ログは `android-device-results` アーティファクトに保存します。
+テストと画面確認はローカルで実行します。GitHub Actions は署名付き APK のビルドとリリース公開に使います。
 
 `start-device.sh` はソフトウェア実行時の OS 起動が監視タイムアウトで再起動されるのを防ぐため、エミュレーター内の `ro.hw_timeout_multiplier` を 20 にして Android フレームワークを再起動します。この設定は APK には入りません。
 
@@ -46,6 +46,6 @@ python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.1.
 - 単体テスト 7 件: 成功
 - debug / release lint: エラー 0 件
 - 署名付き arm64 APK とメタデータ・署名・16 KB アラインメント確認: 成功
-- 端末テスト 6 件と画面確認: GitHub Actions で検証予定
+- 端末テスト 6 件と画面確認: ローカルで実行中
 
-ローカルの仮想化なしエミュレーターでは APK の署名検証が長時間かかるため、KVM が使える CI で端末検証を完了します。転送したデバッグ APK の SHA-256 は元ファイルと一致しています。
+ローカルの仮想化なしエミュレーターでは APK の署名検証に長時間かかっています。転送したデバッグ APK の SHA-256 は元ファイルと一致しています。

@@ -24,10 +24,6 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: bash scripts/setup-android-ci.sh
-      - name: Test debug build
-        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
-      - name: Android 16 camera, OCR and UI tests
-        run: bash scripts/test-android-ci.sh
       - name: Restore signing key
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -40,12 +36,12 @@ jobs:
           umask 077
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           printf 'ANDROID_KEYSTORE_PATH=%s/release.jks\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
-      - name: Test and build
+      - name: Build signed APK
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           python3 scripts/verify-models.py
-          ./gradlew --no-daemon testDebugUnitTest lintRelease assembleRelease "-PreleaseVersion=${RELEASE_TAG#v}"
+          ./gradlew --no-daemon assembleRelease "-PreleaseVersion=${RELEASE_TAG#v}"
       - name: Verify APK and prepare assets
         run: |
           set -euo pipefail

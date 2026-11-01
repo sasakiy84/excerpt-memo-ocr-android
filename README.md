@@ -26,7 +26,7 @@ GitHub Actions の repository secrets に次の値を設定します。
 
 鍵の alias は `excerpt-memo-release`。初版と同じ鍵を継続して使います。GitHub Release の公開には Actions が発行する `GITHUB_TOKEN` を使います。
 
-`vMAJOR.MINOR.PATCH` のタグを push すると、単体テスト・Android 16 の端末テスト・lint・署名確認後に APK と SHA256SUMS を公開します。
+テストと画面確認はローカルで実行します。`vMAJOR.MINOR.PATCH` のタグを push すると、Actions が署名付き APK をビルドし、APK と SHA256SUMS を公開します。
 
 ## 使用モデル
 
