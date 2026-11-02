@@ -192,3 +192,18 @@ python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
 python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
   --class-name com.sasakiy84.excerptmemo.CameraFlowTest --expected-tests 1
 ```
+
+## 英語対応
+
+- 英語の3行の文章を、実際の同梱モデルと既定の選択的再OCR方針で完全一致認識した。日本語とは別に横書きを指定し、細い英字を縦書きと誤判定しない。空白・句読点・アクセント付き英字の結合と、従来の日本語の全角数字の結合も検査した。英語対応単独のホストテストは64件成功、任意の私有写真テスト3件はスキップした。
+- 撮影画面と結果画面の言語ボタン、画面再作成後の選択保持を Android 16 で確認した。
+- Android CPU の PP-OCRv6 small に英語文 `Read, select and copy.` を入力し、完全一致で認識した。追加した横書き指定と実際の検出・透視補正・認識を実行する。ソフトウェアエミュレーターで287.4秒だった。
+- 既存の1024px NDLOCR行検出も含める通しの英語テストは、このエミュレーターで行検出中に600秒の上限へ達した。そのため通しの認識はホストで、追加した横書き処理は Android 上の PP-OCR 単独で確認した。Android で通しの英語処理や物理端末の速度を検証済みとはしない。
+- 英語用の追加モデルはなく、モデル・文字表の容量は従来の296,389,915 bytesのまま。言語指定と各行の方向を保存し、以前の日本語の保存データも読み込める。
+
+```sh
+python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
+  --class-name com.sasakiy84.excerptmemo.DocumentUiTest#languageSwitchIsSharedByCaptureAndResultScreens --expected-tests 1
+python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
+  --class-name com.sasakiy84.excerptmemo.PaddleInstrumentedTest#bundledSmallReadsAnEnglishSentenceOnAndroidCpu --expected-tests 1
+```

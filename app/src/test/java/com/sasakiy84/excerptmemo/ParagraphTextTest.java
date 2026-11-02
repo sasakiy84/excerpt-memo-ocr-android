@@ -8,6 +8,14 @@ public final class ParagraphTextTest {
     private static OcrLine h(float start, float end, float y, String text) { return new OcrLine(start, y, end, y + 20, text); }
     private static OcrLine v(float start, float end, float x, String text) { return new OcrLine(x, start, x + 20, end, text); }
     private static String joined(List<OcrLine> lines) { return ParagraphText.extract(lines, 0, ReadingOrder.text(lines).length()).text(); }
+    @Test public void japaneseFullWidthNumbersStayJoined() {
+        assertEquals("２０２５年", joined(List.of(h(0, 200, 0, "２０２"), h(0, 200, 30, "５年"))));
+    }
+    @Test public void englishWordsKeepSpacesAndAccentedLettersAcrossLineBreaks() {
+        assertEquals("A café keeps ideas", joined(List.of(h(0, 200, 0, "A café"), h(0, 200, 30, "keeps ideas"))));
+        assertEquals("A quote” continues here", joined(List.of(h(0, 200, 0, "A quote”"), h(0, 200, 30, "continues here"))));
+        assertEquals("well-known", joined(List.of(h(0, 200, 0, "well-"), h(0, 200, 30, "known"))));
+    }
     @Test public void fullWidthLinesWithinParagraphAreJoined() {
         assertEquals("地域の資料を調べる。利用者の声を集める。", joined(List.of(h(0,200,0,"地域の資料を調べる。"), h(0,200,30,"利用者の声を集める。"))));
     }

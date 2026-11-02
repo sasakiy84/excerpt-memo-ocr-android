@@ -40,6 +40,7 @@ public final class DocumentViewModel extends AndroidViewModel {
     public List<OcrLine> allLines = List.of();
     private TextGeometry cachedGeometry = new TextGeometry(lines);
     public int selectionStart, selectionEnd;
+    public OcrLanguage language;
     public boolean includePageNumbers, includeRuby, includeTables;
     public String text = "", status = "";
     private int[] textOrigins = new int[0];
@@ -53,6 +54,7 @@ public final class DocumentViewModel extends AndroidViewModel {
     public DocumentViewModel(Application application) {
         super(application);
         var preferences = application.getSharedPreferences("extraction", 0);
+        language = OcrLanguage.from(preferences.getString("language", "ja"));
         includePageNumbers = preferences.getBoolean("pageNumbers", false);
         includeRuby = preferences.getBoolean("ruby", false);
         includeTables = preferences.getBoolean("tables", false);
@@ -74,9 +76,10 @@ public final class DocumentViewModel extends AndroidViewModel {
                         JSONArray line = array.getJSONArray(i);
                         restoredLines.add(new OcrLine((float) line.getDouble(0), (float) line.getDouble(1),
                                 (float) line.getDouble(2), (float) line.getDouble(3), line.getString(4),
-                                OcrLine.Kind.valueOf(line.optString(5, "TEXT"))));
+                                OcrLine.Kind.valueOf(line.optString(5, "TEXT")), line.optBoolean(6, false)));
                     }
                     main.post(() -> {
+                        language = OcrLanguage.from(json.optString("language", "ja"));
                         page = restored; sourcePage = source; allLines = restoredLines;
                         pageRectified = json.optBoolean("pageRectified");
                         rectifiedPage = rectified;
@@ -202,6 +205,14 @@ public final class DocumentViewModel extends AndroidViewModel {
         });
     }
 
+    public void setLanguage(OcrLanguage selected) {
+        if (language == selected) return;
+        if (busy) cancel();
+        language = selected;
+        getApplication().getSharedPreferences("extraction", 0).edit().putString("language", selected.code).apply();
+        if (page != null) read(); else changed();
+    }
+
     public void read() {
         if (busy || page == null) return;
         AtomicBoolean token = new AtomicBoolean(); cancellation = token;
@@ -209,11 +220,12 @@ public final class DocumentViewModel extends AndroidViewModel {
         if (!crop.intersect(0, 0, page.getWidth(), page.getHeight()) || crop.width() < 2 || crop.height() < 2) return;
         Bitmap source = page;
         boolean alreadyRectified = pageRectified;
+        OcrLanguage selectedLanguage = language;
         busy = true; status = getApplication().getString(R.string.loading_model); changed();
         worker.execute(() -> {
             try {
                 if (engine == null) engine = new OcrEngine(getApplication());
-                OcrEngine.PageResult recognized = engine.readPage(source, alreadyRectified, token, (stage, done, total) -> main.post(() -> {
+                OcrEngine.PageResult recognized = engine.readPage(source, alreadyRectified, selectedLanguage, token, (stage, done, total) -> main.post(() -> {
                     if (token.get()) return;
                     int label = switch (stage) {
                         case NDL_DETECTION -> R.string.ndl_detecting;
@@ -360,6 +372,7 @@ public final class DocumentViewModel extends AndroidViewModel {
 
     public java.util.concurrent.Future<?> closePage() {
         cancel();
+        language = OcrLanguage.from(getApplication().getSharedPreferences("extraction", 0).getString("language", "ja"));
         page = null; sourcePage = null; pageRectified = false; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false; changed();
         rectifiedPage = null; editRectified = false; rectifiedEditAngle = 0; rectifiedEditCrop = new android.graphics.RectF(0, 0, 1, 1);
         return worker.submit(() -> { new AtomicFile(imageFile()).delete(); new AtomicFile(sourceFile()).delete(); new AtomicFile(rectifiedFile()).delete(); new AtomicFile(stateFile()).delete(); });
@@ -369,8 +382,8 @@ public final class DocumentViewModel extends AndroidViewModel {
         if (page == null) return;
         try {
             JSONArray array = new JSONArray();
-            for (OcrLine line : allLines) array.put(new JSONArray().put(line.left()).put(line.top()).put(line.right()).put(line.bottom()).put(line.text()).put(line.kind().name()));
-            JSONObject state = new JSONObject().put("lines", array).put("text", text).put("textMode", textMode)
+            for (OcrLine line : allLines) array.put(new JSONArray().put(line.left()).put(line.top()).put(line.right()).put(line.bottom()).put(line.text()).put(line.kind().name()).put(line.forceHorizontal()));
+            JSONObject state = new JSONObject().put("language", language.code).put("lines", array).put("text", text).put("textMode", textMode)
                     .put("selectionStart", selectionStart).put("selectionEnd", selectionEnd)
                     .put("paragraphText", true).put("textPanelFraction", textPanelFraction).put("pageRectified", pageRectified)
                     .put("editRectified", editRectified).put("rectifiedEditAngle", rectifiedEditAngle)

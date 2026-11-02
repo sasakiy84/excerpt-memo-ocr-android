@@ -31,9 +31,12 @@ final class ParagraphText {
     private static String wordSeparator(StringBuilder text, char next) {
         char last = text.charAt(text.length() - 1);
         if (Character.isWhitespace(last) || Character.isWhitespace(next)) return "";
-        boolean latinNext = next < 128 && Character.isLetterOrDigit(next);
-        boolean latinLast = last < 128 && (Character.isLetterOrDigit(last) || ".,;:!?".indexOf(last) >= 0);
+        boolean latinNext = isLatinWord(next);
+        boolean latinLast = isLatinWord(last) || ".,;:!?\"'’”)]".indexOf(last) >= 0;
         return latinNext && latinLast ? " " : "";
+    }
+    private static boolean isLatinWord(char c) {
+        return (c >= '0' && c <= '9') || Character.UnicodeScript.of(c) == Character.UnicodeScript.LATIN;
     }
     private static float start(OcrLine l, boolean vertical) { return vertical ? l.top() : l.left(); }
     private static float end(OcrLine l, boolean vertical) { return vertical ? l.bottom() : l.right(); }

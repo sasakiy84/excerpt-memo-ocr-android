@@ -52,7 +52,7 @@ public final class MainActivity extends FragmentActivity {
     private ProcessCameraProvider cameraProvider;
     private ImageCapture imageCapture;
     private boolean cameraStarting, capturing, updatingText;
-    private static final int MENU_ALL = 1, MENU_ROTATE = 2, MENU_LICENSES = 3, MENU_FILTERS = 4;
+    private static final int MENU_ALL = 1, MENU_ROTATE = 2, MENU_LICENSES = 3, MENU_FILTERS = 4, MENU_LANGUAGE = 5;
     private OnBackPressedCallback back;
     private final ActivityResultLauncher<String> permission = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(), granted -> {
@@ -81,12 +81,14 @@ public final class MainActivity extends FragmentActivity {
         });
         document = new ViewModelProvider(this).get(DocumentViewModel.class);
         toolbar = findViewById(R.id.toolbar);
+        toolbar.getMenu().add(Menu.NONE, MENU_LANGUAGE, Menu.NONE, R.string.language_japanese).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         toolbar.getMenu().add(Menu.NONE, MENU_ALL, Menu.NONE, R.string.all).setIcon(R.drawable.ic_select_all).setIconTintList(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.excerpt_ink))).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
         toolbar.getMenu().add(Menu.NONE, MENU_ROTATE, Menu.NONE, R.string.edit_image).setIcon(R.drawable.ic_edit_image).setIconTintList(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.excerpt_ink))).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
         toolbar.getMenu().add(Menu.NONE, MENU_FILTERS, Menu.NONE, R.string.extraction_options);
         toolbar.getMenu().add(Menu.NONE, MENU_LICENSES, Menu.NONE, R.string.licenses);
         toolbar.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == MENU_ALL) pageView.selectAll();
+            if (item.getItemId() == MENU_LANGUAGE) document.setLanguage(document.language == OcrLanguage.JAPANESE ? OcrLanguage.ENGLISH : OcrLanguage.JAPANESE);
+            else if (item.getItemId() == MENU_ALL) pageView.selectAll();
             else if (item.getItemId() == MENU_ROTATE) {
                 if (getSupportFragmentManager().findFragmentByTag("image-edit") == null) new ImageEditDialog().show(getSupportFragmentManager(), "image-edit");
             }
@@ -150,6 +152,8 @@ public final class MainActivity extends FragmentActivity {
         findViewById(R.id.camera_panel).setVisibility(hasPage ? View.GONE : View.VISIBLE);
         findViewById(R.id.document_panel).setVisibility(hasPage ? View.VISIBLE : View.GONE);
         back.setEnabled(hasPage || document.busy);
+        toolbar.getMenu().findItem(MENU_LANGUAGE).setTitle(document.language.label).setEnabled(!document.busy)
+                .setContentDescription(getString(R.string.recognition_language, getString(document.language.label)));
         toolbar.setNavigationIcon(hasPage ? ContextCompat.getDrawable(this, R.drawable.ic_back) : null);
         toolbar.setNavigationContentDescription(R.string.back);
         toolbar.getMenu().findItem(MENU_ALL).setVisible(hasPage).setEnabled(!document.busy);

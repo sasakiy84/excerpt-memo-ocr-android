@@ -44,4 +44,7 @@
     <string name="apply">適用</string>
     <string name="crop_description">画像の切り抜き。四隅と辺をドラッグして範囲を調整。</string>
     <string name="text_drawer_height">テキスト表示の高さ</string>
+    <string name="language_japanese">日本語</string>
+    <string name="language_english">English</string>
+    <string name="recognition_language">認識言語: %1$s</string>
 </resources>

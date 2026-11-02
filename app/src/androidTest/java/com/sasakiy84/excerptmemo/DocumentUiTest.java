@@ -18,6 +18,33 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public final class DocumentUiTest {
+    @Test public void languageSwitchIsSharedByCaptureAndResultScreens() throws Exception {
+        var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        new File(context.getFilesDir(), "page.json").delete();
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            waitFor(scenario, activity -> !new ViewModelProvider(activity).get(DocumentViewModel.class).busy);
+            scenario.onActivity(activity -> {
+                var model = new ViewModelProvider(activity).get(DocumentViewModel.class);
+                model.closePage(); model.setLanguage(OcrLanguage.JAPANESE);
+                var toolbar = (android.widget.Toolbar) activity.findViewById(R.id.toolbar);
+                toolbar.getMenu().performIdentifierAction(5, 0);
+                assertEquals(OcrLanguage.ENGLISH, model.language);
+                assertEquals("English", toolbar.getMenu().findItem(5).getTitle());
+                model.page = OcrInstrumentedTest.fixture();
+                model.allLines = List.of(new OcrLine(80, 340, 440, 410, "Android 16", OcrLine.Kind.TEXT, true));
+                model.setInclusions(false, false, false);
+                assertTrue(toolbar.getMenu().findItem(5).isVisible());
+                assertEquals("English", toolbar.getMenu().findItem(5).getTitle());
+            });
+            scenario.recreate();
+            scenario.onActivity(activity -> {
+                var model = new ViewModelProvider(activity).get(DocumentViewModel.class);
+                assertEquals(OcrLanguage.ENGLISH, model.language);
+                model.closePage(); model.setLanguage(OcrLanguage.JAPANESE);
+            });
+        }
+    }
+
     @Test(timeout = 600000) public void openImageRecognizeAndCopyWithBundledModels() throws Exception {
         var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         new File(context.getFilesDir(), "page.json").delete();

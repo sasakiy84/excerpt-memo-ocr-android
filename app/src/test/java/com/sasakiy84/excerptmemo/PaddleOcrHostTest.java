@@ -17,6 +17,25 @@ import org.robolectric.annotation.GraphicsMode;
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public final class PaddleOcrHostTest {
     @BeforeClass public static void loadHostCpuOpenCv() { HostOpenCv.load(); }
+    @Test public void englishPageUsesPaddleAndPreservesWordsAndPunctuation() throws Exception {
+        Bitmap image = Bitmap.createBitmap(1500, 500, Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas canvas = new android.graphics.Canvas(image); canvas.drawColor(android.graphics.Color.WHITE);
+        android.graphics.Paint ink = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        ink.setColor(android.graphics.Color.BLACK); ink.setTextSize(48);
+        String[] truth = {"A local library keeps ideas within reach.", "Read the page, choose a passage, and copy it.", "Offline recognition protects private notes."};
+        for (int i = 0; i < truth.length; i++) canvas.drawText(truth[i], 60, 100 + i * 110, ink);
+        java.util.List<String> progress = new java.util.ArrayList<>();
+        try (OcrEngine engine = new OcrEngine(RuntimeEnvironment.getApplication())) {
+            var result = engine.readPage(image, false, OcrLanguage.ENGLISH, new AtomicBoolean(),
+                    (stage, done, total) -> progress.add(stage.name()));
+            assertEquals("paddle-english", result.workflow());
+            assertEquals(String.join("\n", truth), ReadingOrder.text(result.lines()));
+            assertTrue(result.lines().stream().allMatch(OcrLine::forceHorizontal));
+            assertTrue(progress.contains("PADDLE_RECOGNITION"));
+            assertFalse(progress.contains("UVDOC"));
+        } finally { image.recycle(); }
+    }
+
     @Test public void confidenceExcludesBlankAndRepeatedCtcFrames() {
         var result = PaddleOcr.decodeScored(java.nio.FloatBuffer.wrap(new float[]{.99f, .005f, .005f, .1f, .8f, .1f, .05f, .9f, .05f, .8f, .1f, .1f, .2f, .2f, .6f}), 5, 3, new String[]{"", "甲", "乙"});
         assertEquals("甲乙", result.text());

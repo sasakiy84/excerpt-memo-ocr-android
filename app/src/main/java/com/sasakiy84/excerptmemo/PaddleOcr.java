@@ -45,9 +45,11 @@ final class PaddleOcr {
 
     String recognize(Bitmap image) throws Exception { return recognize(image, new AtomicBoolean()); }
 
-    String recognize(Bitmap image, AtomicBoolean cancelled) throws Exception {
+    String recognize(Bitmap image, AtomicBoolean cancelled) throws Exception { return recognize(image, cancelled, false); }
+
+    String recognize(Bitmap image, AtomicBoolean cancelled, boolean horizontalOnly) throws Exception {
         Bitmap horizontal = image;
-        if (image.getHeight() >= image.getWidth() * 1.5f) {
+        if (!horizontalOnly && image.getHeight() >= image.getWidth() * 1.5f) {
             Matrix rotation = new Matrix(); rotation.postRotate(-90);
             horizontal = Bitmap.createBitmap(image, 0, 0, image.getWidth(), image.getHeight(), rotation, true);
         }
@@ -106,6 +108,10 @@ final class PaddleOcr {
     }
 
     List<OcrLine> read(Bitmap image, AtomicBoolean cancelled, OcrEngine.Progress progress) throws Exception {
+        return read(image, cancelled, progress, false);
+    }
+
+    List<OcrLine> read(Bitmap image, AtomicBoolean cancelled, OcrEngine.Progress progress, boolean horizontalOnly) throws Exception {
         ensureOpenCv();
         progress.update(OcrEngine.Stage.PADDLE_DETECTION, 0, 1);
         List<Point[]> boxes = detect(image);
@@ -124,11 +130,11 @@ final class PaddleOcr {
                     Imgproc.warpPerspective(source, crop, matrix, new Size(width, height), Imgproc.INTER_CUBIC, Core.BORDER_REPLICATE);
                     Bitmap bitmap = toBitmap(crop);
                     String text;
-                    try { text = recognize(bitmap, cancelled); } finally { bitmap.recycle(); }
+                    try { text = recognize(bitmap, cancelled, horizontalOnly); } finally { bitmap.recycle(); }
                     if (!text.isBlank()) {
                         float left = Float.POSITIVE_INFINITY, top = left, right = 0, bottom = 0;
                         for (Point p : points) { left = Math.min(left, (float)p.x); top = Math.min(top, (float)p.y); right = Math.max(right, (float)p.x); bottom = Math.max(bottom, (float)p.y); }
-                        lines.add(new OcrLine(left, top, right, bottom, text));
+                        lines.add(new OcrLine(left, top, right, bottom, text, OcrLine.Kind.TEXT, horizontalOnly));
                     }
                 } finally { crop.release(); matrix.release(); from.release(); to.release(); }
                 progress.update(OcrEngine.Stage.PADDLE_RECOGNITION, ++done, boxes.size());

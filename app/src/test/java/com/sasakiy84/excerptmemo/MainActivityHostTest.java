@@ -37,6 +37,25 @@ public final class MainActivityHostTest {
         new File(app.getFilesDir(), "page.png").delete();
     }
 
+    @Test public void languageButtonIsAvailableOnCaptureAndResultScreens() throws Exception {
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        DocumentViewModel model = new ViewModelProvider(controller.get()).get(DocumentViewModel.class);
+        try {
+            DocumentExtractionHostTest.awaitIdle(model); model.closePage().get(); model.setLanguage(OcrLanguage.JAPANESE);
+            Toolbar toolbar = controller.get().findViewById(R.id.toolbar);
+            toolbar.getMenu().performIdentifierAction(5, 0);
+            assertEquals(OcrLanguage.ENGLISH, model.language);
+            assertEquals("English", toolbar.getMenu().findItem(5).getTitle());
+            model.page = Bitmap.createBitmap(100, 200, Bitmap.Config.ARGB_8888);
+            model.allLines = List.of(new OcrLine(10, 10, 90, 30, "A local note", OcrLine.Kind.TEXT, true));
+            model.setInclusions(false, false, false);
+            assertTrue(toolbar.getMenu().findItem(5).isVisible());
+            assertEquals("English", toolbar.getMenu().findItem(5).getTitle());
+            model.save();
+            model.closePage().get(); model.setLanguage(OcrLanguage.JAPANESE);
+        } finally { DocumentExtractionHostTest.close(controller); }
+    }
+
     @Test public void firstLaunchShowsCameraWithoutTryingToLoadDrawableZero() throws Exception {
         var controller = Robolectric.buildActivity(MainActivity.class).setup();
         try {

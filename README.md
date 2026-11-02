@@ -43,4 +43,6 @@ DINOv3 を蒸留した検出モデルには DINOv3 License が適用されます
 
 [PP-OCRv6 small](https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx) と [UVDoc](https://huggingface.co/PaddlePaddle/UVDoc_onnx) は PaddlePaddle 公式の ONNX 配布を使用しています（Apache-2.0）。画像の輪郭処理と透視変換には OpenCV 4.12.0 を使用しています。
 
+撮影画面と結果画面の言語ボタンで日本語・英語を切り替えられます。英語も既存の PP-OCRv6 を使用し、追加モデルをダウンロードしません。
+
 PP-OCR の認識スコアが低い行は medium で一度だけ再確認します。small のみ・最初から medium・小型言語モデルとの比較は [選択的再OCRの比較](docs/ocr-selective-comparison.md) に記録しています。

@@ -113,14 +113,19 @@ public final class OcrEngine implements AutoCloseable {
 
     /** One chosen route, no model race or user-facing engine selector. */
     public PageResult readPage(Bitmap page, boolean alreadyRectified, AtomicBoolean cancelled, Progress progress) throws Exception {
+        return readPage(page, alreadyRectified, OcrLanguage.JAPANESE, cancelled, progress);
+    }
+
+    public PageResult readPage(Bitmap page, boolean alreadyRectified, OcrLanguage language, AtomicBoolean cancelled, Progress progress) throws Exception {
         checkCancelled(cancelled); progress.update(Stage.NDL_DETECTION, 0, 1);
         List<Detection> layout = detect(page, session(DETECTOR));
         List<OcrLine> geometry = layout.stream().map(d -> new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, "", d.kind)).toList();
         OcrRouting.Route route = alreadyRectified ? OcrRouting.Route.FLATTEN_PADDLE
                 : OcrRouting.choose(geometry, page.getWidth(), page.getHeight(), true);
+        if (language == OcrLanguage.ENGLISH && route == OcrRouting.Route.NDL) route = OcrRouting.Route.PADDLE;
         checkCancelled(cancelled);
         if (route == OcrRouting.Route.PADDLE) {
-            List<OcrLine> recognized = paddle().read(page, cancelled, progress);
+            List<OcrLine> recognized = paddle().read(page, cancelled, progress, language == OcrLanguage.ENGLISH);
             List<OcrLine> classified = new ArrayList<>();
             for (OcrLine line : recognized) {
                 OcrLine.Kind kind = OcrLine.Kind.TEXT;
@@ -130,7 +135,7 @@ public final class OcrEngine implements AutoCloseable {
                     float ratio = OcrRouting.categoryOverlap(line, detected);
                     if (ratio > best) { best = ratio; kind = detected.kind(); }
                 }
-                classified.add(new OcrLine(line.left(), line.top(), line.right(), line.bottom(), line.text(), kind));
+                classified.add(new OcrLine(line.left(), line.top(), line.right(), line.bottom(), line.text(), kind, language == OcrLanguage.ENGLISH));
             }
             // Keep detected folios even when the general-purpose detector omits tiny text.
             for (Detection d : layout) if (d.kind == OcrLine.Kind.PAGE_NUMBER && classified.stream().noneMatch(l -> l.kind() == d.kind && l.intersects(d.box.left, d.box.top, d.box.right, d.box.bottom))) {
@@ -139,10 +144,10 @@ public final class OcrEngine implements AutoCloseable {
                 Bitmap crop = Bitmap.createBitmap(page, d.box.left, d.box.top, d.box.width(), d.box.height());
                 String text;
                 try { text = recognize(crop, d.tier, cancelled); } finally { if (crop != page) crop.recycle(); }
-                if (!text.isBlank()) classified.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind));
+                if (!text.isBlank()) classified.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind, language == OcrLanguage.ENGLISH));
                 progress.update(Stage.NDL_RECOGNITION, 1, 1);
             }
-            return new PageResult(page, ReadingOrder.sort(classified), false, "paddle-long-vertical");
+            return new PageResult(page, ReadingOrder.sort(classified), false, language == OcrLanguage.ENGLISH ? "paddle-english" : "paddle-long-vertical");
         }
         Bitmap target = page;
         if (route == OcrRouting.Route.FLATTEN_PADDLE && !alreadyRectified) {
@@ -163,9 +168,9 @@ public final class OcrEngine implements AutoCloseable {
                 checkCancelled(cancelled);
                 Bitmap crop = Bitmap.createBitmap(target, d.box.left, d.box.top, d.box.width(), d.box.height());
                 String text;
-                try { text = route == OcrRouting.Route.FLATTEN_PADDLE ? paddle().recognize(crop, cancelled) : recognize(crop, d.tier, cancelled); }
+                try { text = route == OcrRouting.Route.FLATTEN_PADDLE ? paddle().recognize(crop, cancelled, language == OcrLanguage.ENGLISH) : recognize(crop, d.tier, cancelled); }
                 finally { if (crop != target) crop.recycle(); }
-                if (!text.isBlank()) lines.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind));
+                if (!text.isBlank()) lines.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind, language == OcrLanguage.ENGLISH));
                 progress.update(stage, ++done, layout.size());
             }
             checkCancelled(cancelled);

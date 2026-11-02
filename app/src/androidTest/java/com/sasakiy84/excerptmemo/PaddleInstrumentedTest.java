@@ -18,6 +18,24 @@ public final class PaddleInstrumentedTest {
         return source;
     }
 
+    @Test(timeout = 600000) public void bundledSmallReadsAnEnglishSentenceOnAndroidCpu() throws Exception {
+        var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Bitmap image = Bitmap.createBitmap(600, 200, Bitmap.Config.ARGB_8888);
+        var canvas = new android.graphics.Canvas(image); canvas.drawColor(android.graphics.Color.WHITE);
+        var ink = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        ink.setColor(android.graphics.Color.BLACK); ink.setTextSize(36);
+        canvas.drawText("Read, select and copy.", 40, 100, ink);
+        try (OcrEngine engine = new OcrEngine(context)) {
+            // Exercise the new horizontal preprocessing on Android. The full language
+            // route (including the unchanged 1024px NDL layout) has separate host coverage.
+            var paddle = new PaddleOcr(context, engine::session, PaddleOcr.Policy.SMALL);
+            var lines = paddle.read(image, new AtomicBoolean(), (stage, done, total) ->
+                    android.util.Log.i("OcrNativeTest", "English " + stage + " " + done + "/" + total), true);
+            assertEquals("Read, select and copy.", ReadingOrder.text(lines));
+            assertTrue(lines.stream().allMatch(OcrLine::forceHorizontal));
+        } finally { image.recycle(); }
+    }
+
     @Test(timeout = 600000) public void bundledMediumReadsJapaneseOnAndroidCpu() throws Exception {
         var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Bitmap full = OcrInstrumentedTest.fixture();
