@@ -15,7 +15,7 @@ if [ -f /etc/ssl/certs/java/cacerts ]; then
 fi
 if [ ! -x "$tool_root/sdk/cmdline-tools/latest/bin/sdkmanager" ]; then
     curl -fLSs --retry 2 https://dl.google.com/android/repository/commandlinetools-linux-16111833_latest.zip -o tools.zip
-    printf 'e025545c62a8e64c7559119566a569fb1dec5f60  tools.zip\n' | sha1sum -c
+    printf '0877a1d048fe4a24efe2eff536ca4223f7adeb58648bb81909d33c446918cfa8  tools.zip\n' | sha256sum -c
     unzip -q tools.zip -d sdk/cmdline-tools
     mv sdk/cmdline-tools/cmdline-tools sdk/cmdline-tools/latest
 fi
@@ -35,5 +35,6 @@ test -f "$ANDROID_HOME/platforms/android-36/android.jar"
 cd "$root"
 printf '76805e32c009c0cf0dd5d206bddc9fb22ea42e84db904b764f3047de095493f3  gradle/wrapper/gradle-wrapper.jar\n' | sha256sum -c
 python3 scripts/verify-models.py
+python3 scripts/setup-opencv-host.py
 bash scripts/setup-device.sh
 python3 scripts/gradle-cloud.py --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest

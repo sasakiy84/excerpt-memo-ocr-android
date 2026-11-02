@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Rect;
@@ -27,7 +27,7 @@ import org.robolectric.annotation.GraphicsMode;
 @Config(sdk = 36)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public final class SelectiveOcrBenchmarkTest {
-    @BeforeClass public static void loadHostCpuOpenCv() { nu.pattern.OpenCV.loadLocally(); }
+    @BeforeClass public static void loadHostCpuOpenCv() { HostOpenCv.load(); }
 
     @Test public void compareOriginalAndAutomaticPipelinesOnExternalImages() throws Exception {
         String directory = System.getenv("OCR_EVALUATION_DIR");
@@ -38,7 +38,7 @@ public final class SelectiveOcrBenchmarkTest {
         int baselineErrors = 0, automaticErrors = 0;
         for (String name : new String[]{"user-01.jpg", "user-02.jpg", "user-03.jpg"}) {
             Bitmap source = BitmapFactory.decodeFile(new File(root, "input/" + name).toString());
-            assertThat(source).isNotNull();
+            assertNotNull(source);
             double baselineTime = 0;
             try {
                 for (PaddleOcr.Policy policy : PaddleOcr.Policy.values()) {
@@ -56,8 +56,8 @@ public final class SelectiveOcrBenchmarkTest {
                         }
                         String text = ReadingOrder.text(last.lines());
                         if (automatic && (name.equals("user-01.jpg") || name.equals("user-05.jpg"))) {
-                            assertThat(last.lines().stream().anyMatch(l -> l.kind() == OcrLine.Kind.PAGE_NUMBER && l.text().trim().equals("32"))).isTrue();
-                            assertThat(last.lines().stream().anyMatch(l -> l.kind() == OcrLine.Kind.TEXT && l.text().trim().equals("32"))).isFalse();
+                            assertTrue(last.lines().stream().anyMatch(l -> l.kind() == OcrLine.Kind.PAGE_NUMBER && l.text().trim().equals("32")));
+                            assertFalse(last.lines().stream().anyMatch(l -> l.kind() == OcrLine.Kind.TEXT && l.text().trim().equals("32")));
                         }
                         JSONArray scores = new JSONArray();
                         int errors = 0, characters = 0;
@@ -79,7 +79,7 @@ public final class SelectiveOcrBenchmarkTest {
                                 .put("excerpt_errors", scores).put("text", text).put("rectified", last.rectified());
                         output.put(row);
                         System.out.println("OCR_EVALUATION " + name + " " + last.workflow() + " " + times[1] + "s " + errors + "/" + characters);
-                        if (policy == PaddleOcr.Policy.SELECTIVE) assertThat(times[1]).isLessThan(baselineTime * 2);
+                        if (policy == PaddleOcr.Policy.SELECTIVE) assertTrue(times[1] < baselineTime * 2);
                         if (automatic && last.rectified()) {
                             try (FileOutputStream stream = new FileOutputStream(new File(root, "results/java-" + name + ".png"))) { last.image().compress(Bitmap.CompressFormat.PNG, 100, stream); }
                         }
@@ -88,7 +88,7 @@ public final class SelectiveOcrBenchmarkTest {
             } finally { source.recycle(); }
         }
         Files.write(new File(root, "lm/java-benchmark.json").toPath(), output.toString(2).getBytes(StandardCharsets.UTF_8));
-        assertThat(automaticErrors).isLessThan(baselineErrors);
+        assertTrue(automaticErrors < baselineErrors);
     }
 
     private static int[] normalized(String value) {

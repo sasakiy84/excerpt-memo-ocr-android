@@ -77,18 +77,11 @@ def main():
     gold = json.loads((work / "gold.private.json").read_text())
     cv2.setNumThreads(1)
     m = b.Models(b.ASSETS / "models")
+    m.native_boxes = True
     lm = Language(work)
     results = []
     # Same PP recognizer preprocessing, separate stronger weights and matching charset.
-    import yaml
-
-    medium_chars = (
-        [""]
-        + yaml.safe_load((work / "medium-inference.yml").read_text())["PostProcess"][
-            "character_dict"
-        ]
-        + [" "]
-    )
+    medium_chars = [""] + json.loads((b.ASSETS / "ppocrv6-charset.json").read_text()) + [" "]
     medium = ort.InferenceSession(
         str(work / "medium-inference.onnx"),
         providers=["CPUExecutionProvider"],

@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import android.Manifest;
 import android.app.Instrumentation;
 import android.os.SystemClock;
@@ -35,7 +35,7 @@ public final class CameraFlowTest {
                 }
             });
             MainActivity activity = reference.get();
-            assertThat(activity).isNotNull();
+            assertNotNull(activity);
             waitFor(instrumentation, () -> !new ViewModelProvider(activity).get(DocumentViewModel.class).busy);
             instrumentation.runOnMainSync(() -> new ViewModelProvider(activity).get(DocumentViewModel.class).closePage());
             waitFor(instrumentation, () -> activity.findViewById(R.id.shutter).isEnabled());
@@ -45,19 +45,21 @@ public final class CameraFlowTest {
                 DocumentViewModel model = new ViewModelProvider(activity).get(DocumentViewModel.class);
                 return model.page != null;
             });
-            DocumentUiTest.screenshot(context, "test-camera-page.png");
+            // The software-emulator runner can explicitly disable UiAutomation.
+            if (!"false".equals(InstrumentationRegistry.getArguments().getString("localUiAutomation")))
+                DocumentUiTest.screenshot(context, "test-camera-page.png");
             instrumentation.runOnMainSync(() -> {
-                assertThat(activity.findViewById(R.id.page_view).getVisibility()).isEqualTo(View.VISIBLE);
+                assertEquals(View.VISIBLE, activity.findViewById(R.id.page_view).getVisibility());
                 DocumentViewModel model = new ViewModelProvider(activity).get(DocumentViewModel.class);
-                assertThat(Math.max(model.page.getWidth(), model.page.getHeight())).isGreaterThan(500);
-                assertThat(Math.max(model.page.getWidth(), model.page.getHeight())).isAtMost(2800);
+                assertTrue(Math.max(model.page.getWidth(), model.page.getHeight()) > 500);
+                assertTrue(Math.max(model.page.getWidth(), model.page.getHeight()) <= 2800);
                 if (model.busy) {
                     activity.getOnBackPressedDispatcher().onBackPressed();
-                    assertThat(model.busy).isFalse();
-                    assertThat(model.page).isNotNull();
+                    assertFalse(model.busy);
+                    assertNotNull(model.page);
                 }
                 activity.getOnBackPressedDispatcher().onBackPressed();
-                assertThat(activity.findViewById(R.id.camera_panel).getVisibility()).isEqualTo(View.VISIBLE);
+                assertEquals(View.VISIBLE, activity.findViewById(R.id.camera_panel).getVisibility());
                 activity.finish();
             });
         }

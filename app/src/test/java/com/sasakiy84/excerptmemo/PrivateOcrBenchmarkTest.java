@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Rect;
@@ -27,7 +27,7 @@ import org.robolectric.annotation.GraphicsMode;
 @Config(sdk = 36)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public final class PrivateOcrBenchmarkTest {
-    @BeforeClass public static void loadHostCpuOpenCv() { nu.pattern.OpenCV.loadLocally(); }
+    @BeforeClass public static void loadHostCpuOpenCv() { HostOpenCv.load(); }
 
     @Test public void compareOriginalAndAutomaticPipelinesOnExternalImages() throws Exception {
         String directory = System.getenv("OCR_EVALUATION_DIR");
@@ -38,7 +38,7 @@ public final class PrivateOcrBenchmarkTest {
         int baselineErrors = 0, automaticErrors = 0;
         for (String name : new String[]{"user-01.jpg", "user-02.jpg", "user-03.jpg", "user-05.jpg"}) {
             Bitmap source = BitmapFactory.decodeFile(new File(root, "input/" + name).toString());
-            assertThat(source).isNotNull();
+            assertNotNull(source);
             double baselineTime = 0;
             try {
                 for (boolean automatic : new boolean[]{false, true}) {
@@ -57,8 +57,8 @@ public final class PrivateOcrBenchmarkTest {
                         }
                         String text = ReadingOrder.text(last.lines());
                         if (automatic && (name.equals("user-01.jpg") || name.equals("user-05.jpg"))) {
-                            assertThat(last.lines().stream().anyMatch(l -> l.kind() == OcrLine.Kind.PAGE_NUMBER && l.text().trim().equals("32"))).isTrue();
-                            assertThat(last.lines().stream().anyMatch(l -> l.kind() == OcrLine.Kind.TEXT && l.text().trim().equals("32"))).isFalse();
+                            assertTrue(last.lines().stream().anyMatch(l -> l.kind() == OcrLine.Kind.PAGE_NUMBER && l.text().trim().equals("32")));
+                            assertFalse(last.lines().stream().anyMatch(l -> l.kind() == OcrLine.Kind.TEXT && l.text().trim().equals("32")));
                         }
                         JSONArray scores = new JSONArray();
                         int errors = 0, characters = 0;
@@ -80,7 +80,7 @@ public final class PrivateOcrBenchmarkTest {
                                 .put("excerpt_errors", scores).put("text", text).put("rectified", last.rectified());
                         output.put(row);
                         System.out.println("OCR_EVALUATION " + name + " " + last.workflow() + " " + times[1] + "s " + errors + "/" + characters);
-                        if (automatic) assertThat(times[1]).isLessThan(baselineTime * 2);
+                        if (automatic) assertTrue(times[1] < baselineTime * 2);
                         if (automatic && last.rectified()) {
                             try (FileOutputStream stream = new FileOutputStream(new File(root, "results/java-" + name + ".png"))) { last.image().compress(Bitmap.CompressFormat.PNG, 100, stream); }
                         }
@@ -89,7 +89,7 @@ public final class PrivateOcrBenchmarkTest {
             } finally { source.recycle(); }
         }
         Files.write(new File(root, "results/java-benchmark.json").toPath(), output.toString(2).getBytes(StandardCharsets.UTF_8));
-        assertThat(automaticErrors).isLessThan(baselineErrors);
+        assertTrue(automaticErrors < baselineErrors);
     }
 
     @Test public void editActualUvdocResultAndRetainTheOriginalPhotograph() throws Exception {
@@ -104,17 +104,17 @@ public final class PrivateOcrBenchmarkTest {
             DocumentExtractionHostTest.awaitIdle(model);
             model.open(android.net.Uri.fromFile(new File(directory, "input/user-03.jpg")));
             DocumentExtractionHostTest.awaitIdle(model);
-            assertThat(model.hasRectifiedImage()).isTrue();
-            assertThat(model.editRectified).isTrue();
+            assertTrue(model.hasRectifiedImage());
+            assertTrue(model.editRectified);
             Bitmap base = model.editorSource(true);
-            assertThat(base).isNotSameInstanceAs(model.editorSource(false));
+            assertNotSame(model.editorSource(false), base);
             model.applyImageEdit(0, new android.graphics.RectF(.1f, .1f, .9f, .9f), true);
             DocumentExtractionHostTest.awaitIdle(model);
-            assertThat(model.page.getHeight()).isEqualTo(960);
-            assertThat(model.editorSource(true)).isSameInstanceAs(base);
-            assertThat(model.editorSource(false).getHeight()).isEqualTo(1200);
-            assertThat(model.pageRectified).isTrue();
-            assertThat(model.text).isNotEmpty();
+            assertEquals(960, model.page.getHeight());
+            assertSame(base, model.editorSource(true));
+            assertEquals(1200, model.editorSource(false).getHeight());
+            assertTrue(model.pageRectified);
+            assertFalse(model.text.isEmpty());
         } finally { DocumentExtractionHostTest.close(controller); }
     }
 

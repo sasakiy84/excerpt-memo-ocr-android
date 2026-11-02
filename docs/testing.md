@@ -173,3 +173,22 @@ python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
 python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
   --class-name com.sasakiy84.excerptmemo.PaddleInstrumentedTest#bundledMediumReadsJapaneseOnAndroidCpu --expected-tests 1
 ```
+
+## 依存整理と標準 View 化
+
+- OpenPNP を削除し、公式 OpenCV 4.12.0 のソースから core / imgproc / java の Linux JNI をビルドした。Android と同じ公式 Java API を使用する。ホストテストは60件成功し、私有写真が必要な3件は通常実行ではスキップした。
+- Material と camera-view を削除した構成で、debug / release の lint、debug / Android テスト / 未署名 release のビルドが成功した。モデルと文字表10ファイルも検証した。
+- Gradle のロックと SHA-256 検証を有効にして、ネットワークを使用しない strict モードでも上記の確認が成功した。別の検証用プロジェクトで AGP の期待 SHA-256 を意図的に変え、classpath の検証が失敗することも確認した。
+- Robolectric の Android 16 用 JAR を Gradle の検証対象に含め、実行時は offline モードを使用した。
+- カメラの crop / 0・90・180・270度回転 / 鏡像とフォーカス座標の往復変換、TextureView 固有の回転補正を検査した。カメラ Surface は CameraX の使用終了を待って解放する。
+- Android 16 の画像編集・文字選択・コピー・画面再作成の2テストと、最終版のカメラ撮影・結果画面への移動・カメラへの復帰の1テストが成功した。撮影テストはソフトウェアエミュレーターで316.3秒。物理端末の処理速度とは分けて扱う。
+- `localUiAutomation=false` を指定した撮影テストでは、画面取得 API へ接続しない。通常の instrumentation 実行では従来どおりスクリーンショットを取得する。
+- Gradle から署名情報を削除し、未署名 release を生成した後に `sign-release.sh` で署名した。初版と同じ証明書、モデル内容、SDK / ABI / 16 KB 整列を確認した。
+
+```sh
+python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
+  --class-name 'com.sasakiy84.excerptmemo.ImageEditUiTest,com.sasakiy84.excerptmemo.DocumentUiTest#selectCharactersSwitchToTextCopyAndRestoreAfterRotation' \
+  --expected-tests 2
+python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
+  --class-name com.sasakiy84.excerptmemo.CameraFlowTest --expected-tests 1
+```

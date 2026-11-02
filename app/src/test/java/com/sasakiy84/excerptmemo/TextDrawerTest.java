@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import android.Manifest;
 import android.view.*;
 import androidx.lifecycle.ViewModelProvider;
@@ -30,13 +30,13 @@ public final class TextDrawerTest {
             int before = drawer.getHeight();
             View handle = activity.findViewById(R.id.drawer_handle);
             send(handle,0,400); send(handle,2,200); send(handle,1,200); layout(root);
-            assertThat(drawer.getHeight()).isEqualTo(before+200);
+            assertEquals(before+200, drawer.getHeight());
             float fraction = model.textPanelFraction;
             model.select(0,5); layout(root);
-            assertThat(model.textPanelFraction).isEqualTo(fraction);
-            assertThat(drawer.getHeight()).isEqualTo(before+200);
+            assertEquals(fraction, model.textPanelFraction, 0f);
+            assertEquals(before+200, drawer.getHeight());
             send(handle,0,200); send(handle,2,300); send(handle,1,300); layout(root);
-            assertThat(drawer.getHeight()).isEqualTo(before+100);
+            assertEquals(before+100, drawer.getHeight());
         } finally { DocumentExtractionHostTest.close(controller); }
     }
     private static void layout(View root) {

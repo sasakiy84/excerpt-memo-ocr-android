@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import android.graphics.Bitmap;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -24,7 +24,7 @@ public final class PaddleInstrumentedTest {
         Bitmap crop = Bitmap.createBitmap(full, 60, 100, 760, 100);
         try (OcrEngine engine = new OcrEngine(context)) {
             var recognizer = new PaddleOcr(context, engine::session, PaddleOcr.Policy.MEDIUM);
-            assertThat(recognizer.recognize(crop)).isEqualTo("資料の文字をコピーする");
+            assertEquals("資料の文字をコピーする", recognizer.recognize(crop));
         } finally { crop.recycle(); full.recycle(); }
     }
 
@@ -35,8 +35,8 @@ public final class PaddleInstrumentedTest {
             var session = engine.session(PaddleOcr.MEDIUM);
             try (var output = session.run(java.util.Map.of(session.getInputNames().iterator().next(), input))) {
                 var tensor = (ai.onnxruntime.OnnxTensor)output.get(0);
-                assertThat(tensor.getInfo().getShape()[2]).isEqualTo(18710);
-                assertThat(tensor.getFloatBuffer().get(0)).isFinite();
+                assertEquals(18710, tensor.getInfo().getShape()[2]);
+                assertTrue(Float.isFinite(tensor.getFloatBuffer().get(0)));
             }
         }
     }
@@ -47,8 +47,8 @@ public final class PaddleInstrumentedTest {
         try (OcrEngine engine = new OcrEngine(context)) {
             var paddle = new PaddleOcr(context, engine::session);
             String text = ReadingOrder.text(paddle.read(source, new AtomicBoolean(), (stage, done, total) -> {}));
-            assertThat(text).contains("資料の文字をコピーする");
-            assertThat(text.toLowerCase()).contains("android");
+            assertTrue(text.contains("資料の文字をコピーする"));
+            assertTrue(text.toLowerCase().contains("android"));
             android.util.Log.i("OcrNativeTest", "PP-OCR verified");
         } finally { source.recycle(); }
     }
@@ -60,9 +60,9 @@ public final class PaddleInstrumentedTest {
         try (OcrEngine engine = new OcrEngine(context)) {
             Bitmap flattened = engine.flatten(source);
             try {
-                assertThat(flattened.getWidth()).isEqualTo(source.getWidth());
-                assertThat(flattened.getHeight()).isEqualTo(source.getHeight());
-                assertThat(flattened).isNotSameInstanceAs(source);
+                assertEquals(source.getWidth(), flattened.getWidth());
+                assertEquals(source.getHeight(), flattened.getHeight());
+                assertNotSame(source, flattened);
                 try (var input = new java.io.FileOutputStream(new java.io.File(context.getFilesDir(), "uvdoc-native-input.png"));
                      var output = new java.io.FileOutputStream(new java.io.File(context.getFilesDir(), "uvdoc-native-output.png"))) {
                     source.compress(Bitmap.CompressFormat.PNG, 100, input);

@@ -18,7 +18,6 @@ import unicodedata
 import cv2
 import numpy as np
 import onnxruntime as ort
-import pyclipper
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "app/src/main/assets"
@@ -228,6 +227,7 @@ class Models:
             if getattr(self, 'native_boxes', False):
                 rect = (rect[0], (rect[1][0] + 2 * distance, rect[1][1] + 2 * distance), rect[2])
             else:
+                import pyclipper  # Optional historical polygon baseline only.
                 offset = pyclipper.PyclipperOffset()
                 offset.AddPath(np.int32(points).tolist(), pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
                 expanded = offset.Execute(distance)
@@ -304,6 +304,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--models", type=Path, default=ASSETS / "models")
     parser.add_argument("--workflow", choices=["ndl", "pp", "hybrid", "uv-ndl", "uv-pp", "uv-hybrid", "auto"], required=True)
+    parser.add_argument("--historical-unclip", action="store_true", help="Reproduce the optional pre-0.6 polygon baseline")
     parser.add_argument("--truth", type=Path, help="JSON: {image filename: [manually transcribed excerpt, ...]}")
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--output", type=Path, required=True)
@@ -312,6 +313,7 @@ def main():
     cv2.setNumThreads(1)
     truth = json.loads(args.truth.read_text()) if args.truth else {}
     models = Models(args.models)
+    models.native_boxes = not args.historical_unclip
     rows = []
     args.output.parent.mkdir(parents=True, exist_ok=True)
     for path in args.images:

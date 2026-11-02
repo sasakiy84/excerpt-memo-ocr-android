@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import android.Manifest;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -63,23 +63,23 @@ public final class DocumentExtractionHostTest {
                     new OcrLine(100, 300, 500, 350, "表の値", OcrLine.Kind.TABLE),
                     new OcrLine(450, 940, 500, 980, "12", OcrLine.Kind.PAGE_NUMBER));
             model.setInclusions(false, false, false);
-            assertThat(model.lines).hasSize(1);
-            assertThat(model.text).isEqualTo("本文");
-            assertThat(model.forClipboard(0, 0)).isEqualTo("本文（p. 12）");
+            assertEquals(1, model.lines.size());
+            assertEquals("本文", model.text);
+            assertEquals("本文（p. 12）", model.forClipboard(0, 0));
             model.status = "文字が見つかりませんでした。";
-            ((com.google.android.material.appbar.MaterialToolbar) controller.get().findViewById(R.id.toolbar)).getMenu().performIdentifierAction(4, 0);
+            ((android.widget.Toolbar) controller.get().findViewById(R.id.toolbar)).getMenu().performIdentifierAction(4, 0);
             android.app.Dialog options = org.robolectric.shadows.ShadowDialog.getLatestDialog();
             options.findViewById(R.id.include_page_numbers).performClick();
             options.findViewById(R.id.include_ruby).performClick();
             options.findViewById(R.id.include_tables).performClick();
             options.dismiss();
-            assertThat(model.lines).hasSize(4);
-            assertThat(model.status).isEmpty();
-            assertThat(model.text).contains("ほんぶん");
-            assertThat(model.text).contains("表の値");
-            assertThat(model.text).contains("12");
+            assertEquals(4, model.lines.size());
+            assertTrue(model.status.isEmpty());
+            assertTrue(model.text.contains("ほんぶん"));
+            assertTrue(model.text.contains("表の値"));
+            assertTrue(model.text.contains("12"));
             model.setInclusions(false, false, false);
-            assertThat(model.text).isEqualTo("本文");
+            assertEquals("本文", model.text);
         } finally { close(controller); }
     }
 
@@ -92,12 +92,12 @@ public final class DocumentExtractionHostTest {
                     new OcrLine(850, 940, 900, 980, "12", OcrLine.Kind.PAGE_NUMBER),
                     new OcrLine(100, 940, 150, 980, "13", OcrLine.Kind.PAGE_NUMBER));
             model.setInclusions(false, false, false);
-            assertThat(model.forClipboard(0, 0)).isEqualTo("右の本文\n左の本文（pp. 12–13）");
-            assertThat(model.forClipboard(4, 0)).isEqualTo("右の本文（p. 12）");
-            assertThat(model.forClipboard(5, 9)).isEqualTo("左の本文（p. 13）");
-            assertThat(model.text).isEqualTo("右の本文\n左の本文");
+            assertEquals("右の本文\n左の本文（pp. 12–13）", model.forClipboard(0, 0));
+            assertEquals("右の本文（p. 12）", model.forClipboard(4, 0));
+            assertEquals("左の本文（p. 13）", model.forClipboard(5, 9));
+            assertEquals("右の本文\n左の本文", model.text);
             model.select(2, 7);
-            assertThat(model.forClipboard(0, 0)).isEqualTo("本文\n左の（pp. 12–13）");
+            assertEquals("本文\n左の（pp. 12–13）", model.forClipboard(0, 0));
         } finally { close(controller); }
     }
 
@@ -112,11 +112,11 @@ public final class DocumentExtractionHostTest {
             model.setInclusions(false, false, false);
             android.widget.EditText editor = controller.get().findViewById(R.id.result_text);
             editor.getText().replace(2, 3, "資");
-            assertThat(model.text).isEqualTo("右の資文\n左の本文");
-            assertThat(model.forClipboard(5, 9)).isEqualTo("左の本文（p. 13）");
+            assertEquals("右の資文\n左の本文", model.text);
+            assertEquals("左の本文（p. 13）", model.forClipboard(5, 9));
             editor.getText().insert(0, "引用:");
-            assertThat(model.forClipboard(8, 12)).isEqualTo("左の本文（p. 13）");
-            assertThat(model.forClipboard(0, 0)).endsWith("（pp. 12–13）");
+            assertEquals("左の本文（p. 13）", model.forClipboard(8, 12));
+            assertTrue(model.forClipboard(0, 0).endsWith("（pp. 12–13）"));
         } finally { close(controller); }
     }
 
@@ -133,17 +133,17 @@ public final class DocumentExtractionHostTest {
                     new OcrLine(100, 940, 150, 980, "13", OcrLine.Kind.PAGE_NUMBER));
             model.setInclusions(false, false, false);
             String right = "右の本文の前半右の本文の後半", left = "左の本文の前半左の本文の後半";
-            assertThat(model.text).isEqualTo(right + "\n" + left);
-            assertThat(model.forClipboard(right.length() + 1, model.text.length())).isEqualTo(left + "（p. 13）");
+            assertEquals(right + "\n" + left, model.text);
+            assertEquals(left + "（p. 13）", model.forClipboard(right.length() + 1, model.text.length()));
             android.widget.EditText editor = controller.get().findViewById(R.id.result_text);
             editor.getText().insert(0, "引用:");
-            assertThat(model.forClipboard(right.length() + 4, model.text.length())).isEqualTo(left + "（p. 13）");
-            assertThat(model.forClipboard(0, 0)).endsWith("（pp. 12–13）");
+            assertEquals(left + "（p. 13）", model.forClipboard(right.length() + 4, model.text.length()));
+            assertTrue(model.forClipboard(0, 0).endsWith("（pp. 12–13）"));
             var geometry = new TextGeometry(model.lines);
             int line = model.lines.indexOf(model.allLines.get(1));
             model.select(geometry.starts[line] + 2, geometry.starts[line] + 6);
-            assertThat(model.text).isEqualTo("本文の後");
-            assertThat(model.forClipboard(0, 0)).isEqualTo("本文の後（p. 12）");
+            assertEquals("本文の後", model.text);
+            assertEquals("本文の後（p. 12）", model.forClipboard(0, 0));
         } finally { close(controller); }
     }
 
@@ -156,9 +156,9 @@ public final class DocumentExtractionHostTest {
             model.setInclusions(false, false, false);
             model.select(1, 4);
             model.setInclusions(false, true, false);
-            assertThat(model.text).isEqualTo("料の文");
-            assertThat(model.selectionStart).isEqualTo(1);
-            assertThat(model.selectionEnd).isEqualTo(4);
+            assertEquals("料の文", model.text);
+            assertEquals(1, model.selectionStart);
+            assertEquals(4, model.selectionEnd);
         } finally { close(controller); }
     }
 
@@ -174,13 +174,13 @@ public final class DocumentExtractionHostTest {
             var statuses = new java.util.ArrayList<String>();
             model.changes.observe(controller.get(), ignored -> statuses.add(model.status));
             model.open(Uri.fromFile(input));
-            assertThat(model.busy).isTrue();
+            assertTrue(model.busy);
             awaitIdle(model);
-            assertThat(model.status).isEmpty();
-            assertThat(model.text).isEqualTo("資料の文字をコピーする\nAndroid 16");
-            assertThat(statuses).contains("NDLOCR-Lite を実行中、1/2");
-            assertThat(model.selectionStart).isEqualTo(0);
-            assertThat(model.selectionEnd).isEqualTo(model.text.length());
+            assertTrue(model.status.isEmpty());
+            assertEquals("資料の文字をコピーする\nAndroid 16", model.text);
+            assertTrue(statuses.contains("NDLOCR-Lite を実行中、1/2"));
+            assertEquals(0, model.selectionStart);
+            assertEquals(model.text.length(), model.selectionEnd);
         } finally { close(controller); }
     }
 }

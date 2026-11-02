@@ -1,2 +1,1 @@
 -r requirements-ocr-benchmark.txt
-PyYAML==6.0.3

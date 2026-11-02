@@ -7,10 +7,6 @@ import android.view.*;
 import android.widget.*;
 import androidx.fragment.app.DialogFragment;
 import androidx.lifecycle.ViewModelProvider;
-import com.google.android.material.appbar.MaterialToolbar;
-import com.google.android.material.button.MaterialButton;
-import com.google.android.material.button.MaterialButtonToggleGroup;
-import com.google.android.material.slider.Slider;
 import java.util.Locale;
 
 public final class ImageEditDialog extends DialogFragment {
@@ -30,10 +26,10 @@ public final class ImageEditDialog extends DialogFragment {
             var safe = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
             view.setPadding(safe.left, safe.top, safe.right, safe.bottom); return insets;
         });
-        MaterialToolbar toolbar = new MaterialToolbar(requireContext()); toolbar.setTitle(R.string.edit_image);
+        Toolbar toolbar = new Toolbar(requireContext()); toolbar.setTitle(R.string.edit_image);
         toolbar.setTitleTextAppearance(requireContext(), R.style.TextAppearance_Excerpt_Toolbar);
-        toolbar.setNavigationIconTint(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.excerpt_ink));
-        toolbar.setNavigationIcon(R.drawable.ic_close); toolbar.setNavigationContentDescription(R.string.cancel);
+        toolbar.setNavigationIcon(R.drawable.ic_close);
+        toolbar.getNavigationIcon().setTint(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.excerpt_ink)); toolbar.setNavigationContentDescription(R.string.cancel);
         toolbar.setNavigationOnClickListener(v -> dismiss());
         root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(56)));
         angles[0] = model.editAngle; angles[1] = model.rectifiedEditAngle;
@@ -48,10 +44,10 @@ public final class ImageEditDialog extends DialogFragment {
                 if (crop != null) crops[i] = new RectF(crop[0], crop[1], crop[2], crop[3]);
             }
         }
-        MaterialButtonToggleGroup sources = new MaterialButtonToggleGroup(requireContext());
-        sources.setSingleSelection(true); sources.setSelectionRequired(true);
+        RadioGroup sources = new RadioGroup(requireContext());
+        sources.setOrientation(LinearLayout.HORIZONTAL);
         for (int i = 0; i < 2; i++) {
-            MaterialButton source = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+            RadioButton source = new RadioButton(requireContext(), null, 0, R.style.Widget_Excerpt_ModeButton);
             source.setId(i == 0 ? R.id.edit_original : R.id.edit_rectified);
             source.setText(i == 0 ? R.string.original_image : R.string.rectified_image);
             sources.addView(source, new LinearLayout.LayoutParams(0, dp(48), 1));
@@ -69,23 +65,25 @@ public final class ImageEditDialog extends DialogFragment {
         root.addView(editor, new LinearLayout.LayoutParams(-1, 0, 1));
         TextView angle = new TextView(requireContext()); angle.setGravity(Gravity.CENTER); angle.setTextSize(14);
         root.addView(angle, new LinearLayout.LayoutParams(-1, dp(36)));
-        Slider slider = new Slider(requireContext()); slider.setValueFrom(-45); slider.setValueTo(45); slider.setStepSize(0.1f); slider.setValue(fine);
+        SeekBar slider = new SeekBar(requireContext()); slider.setMax(900); slider.setProgress(Math.round((fine + 45) * 10));
         slider.setContentDescription(getString(R.string.rotation_angle)); slider.setId(R.id.rotation_slider);
-        slider.setLabelFormatter(value -> String.format(Locale.ROOT, "%.1f°", value));
         LinearLayout.LayoutParams sliderLayout = new LinearLayout.LayoutParams(-1, dp(48)); sliderLayout.setMargins(dp(24), 0, dp(24), 0);
         root.addView(slider, sliderLayout);
         Runnable update = () -> { editor.setAngle(turns * 90 + fine); angle.setText(String.format(Locale.ROOT, "%.1f°", turns * 90 + fine)); };
-        slider.addOnChangeListener((view, value, user) -> { fine = value; update.run(); });
-        sources.addOnButtonCheckedListener((group, id, checked) -> {
-            if (!checked) return;
+        slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar view, int value, boolean user) { fine = value / 10f - 45; update.run(); }
+            @Override public void onStartTrackingTouch(SeekBar view) {}
+            @Override public void onStopTrackingTouch(SeekBar view) {}
+        });
+        sources.setOnCheckedChangeListener((group, id) -> {
             rememberEdit(); fromRectified = id == R.id.edit_rectified;
             int selected = fromRectified ? 1 : 0;
             editor.setImage(model.editorSource(fromRectified)); editor.setCrop(crops[selected]);
             turns = Math.round(angles[selected] / 90); fine = angles[selected] - turns * 90;
-            slider.setValue(fine); update.run();
+            slider.setProgress(Math.round((fine + 45) * 10)); update.run();
         });
         LinearLayout actions = new LinearLayout(requireContext()); actions.setGravity(Gravity.CENTER_VERTICAL); actions.setPadding(dp(16), dp(8), dp(16), dp(16));
-        MaterialButton rotate = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        Button rotate = new Button(requireContext(), null, 0, R.style.Widget_Excerpt_SecondaryButton);
         rotate.setText(R.string.rotate_quarter); rotate.setId(R.id.rotate_image_quarter);
         rotate.setOnClickListener(v -> {
             RectF crop = editor.getCrop();
@@ -93,12 +91,12 @@ public final class ImageEditDialog extends DialogFragment {
             turns = (turns + 1) % 4; update.run();
         });
         actions.addView(rotate, new LinearLayout.LayoutParams(-2, dp(48)));
-        MaterialButton apply = new MaterialButton(requireContext()); apply.setText(R.string.apply); apply.setId(R.id.apply_image_edit);
+        Button apply = new Button(requireContext()); apply.setText(R.string.apply); apply.setId(R.id.apply_image_edit);
         LinearLayout.LayoutParams applyLayout = new LinearLayout.LayoutParams(0, dp(48), 1); applyLayout.setMargins(dp(12), 0, 0, 0);
         actions.addView(apply, applyLayout); root.addView(actions);
         apply.setOnClickListener(v -> { if (model.busy) model.cancel(); model.applyImageEdit(turns * 90 + fine, editor.getCrop(), fromRectified); dismiss(); });
         toolbar.getMenu().add(R.string.reset).setOnMenuItemClickListener(item -> {
-            turns = 0; fine = 0; slider.setValue(0); editor.setCrop(new RectF(0, 0, 1, 1)); update.run(); return true;
+            turns = 0; fine = 0; slider.setProgress(450); editor.setCrop(new RectF(0, 0, 1, 1)); update.run(); return true;
         }).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         update.run(); return root;
     }

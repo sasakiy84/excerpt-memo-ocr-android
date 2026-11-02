@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import android.Manifest;
 import android.content.ClipboardManager;
 import android.graphics.Bitmap;
@@ -10,7 +10,7 @@ import android.graphics.Rect;
 import android.view.View;
 import android.widget.EditText;
 import androidx.lifecycle.ViewModelProvider;
-import com.google.android.material.appbar.MaterialToolbar;
+import android.widget.Toolbar;
 import java.util.List;
 import java.util.Set;
 import java.io.File;
@@ -42,8 +42,8 @@ public final class MainActivityHostTest {
         try {
             MainActivity activity = controller.get();
             DocumentExtractionHostTest.awaitIdle(new ViewModelProvider(activity).get(DocumentViewModel.class));
-            assertThat(activity.findViewById(R.id.camera_panel).getVisibility()).isEqualTo(View.VISIBLE);
-            assertThat(((MaterialToolbar) activity.findViewById(R.id.toolbar)).getNavigationIcon()).isNull();
+            assertEquals(View.VISIBLE, activity.findViewById(R.id.camera_panel).getVisibility());
+            assertNull(((Toolbar) activity.findViewById(R.id.toolbar)).getNavigationIcon());
             render(activity, "camera");
             renderLauncherIcon(activity);
         } finally { DocumentExtractionHostTest.close(controller); }
@@ -70,11 +70,10 @@ public final class MainActivityHostTest {
             EditText text = activity.findViewById(R.id.result_text);
             text.setSelection(5, 0);
             activity.findViewById(R.id.copy_button).performClick();
-            assertThat(activity.getSystemService(ClipboardManager.class).getPrimaryClip().getItemAt(0).getText().toString())
-                    .isEqualTo("地域図書館");
-            ((com.google.android.material.button.MaterialButtonToggleGroup) activity.findViewById(R.id.mode_toggle))
+            assertEquals("地域図書館", activity.getSystemService(ClipboardManager.class).getPrimaryClip().getItemAt(0).getText().toString());
+            ((android.widget.RadioGroup) activity.findViewById(R.id.mode_toggle))
                     .check(R.id.text_mode);
-            assertThat(activity.findViewById(R.id.page_view).getVisibility()).isEqualTo(View.GONE);
+            assertEquals(View.GONE, activity.findViewById(R.id.page_view).getVisibility());
             render(activity, "text");
         } finally { DocumentExtractionHostTest.close(controller); }
     }

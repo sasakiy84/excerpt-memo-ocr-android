@@ -119,9 +119,9 @@ UVDoc は BGR の 0〜1、NCHW を入力する。公式 ONNX に内部の resize
 
 ```sh
 python3 -m venv /tmp/ocr-evaluation-venv
-/tmp/ocr-evaluation-venv/bin/pip install -r scripts/requirements-ocr-benchmark.txt
+/tmp/ocr-evaluation-venv/bin/pip install -r scripts/requirements-ocr-historical.txt
 /tmp/ocr-evaluation-venv/bin/python scripts/benchmark-ocr.py \
-  --workflow auto --truth /path/to/truth.private.json \
+  --historical-unclip --workflow auto --truth /path/to/truth.private.json \
   --output /tmp/ocr-results/auto.json \
   /path/to/user-01.jpg /path/to/user-02.jpg /path/to/user-03.jpg
 ```

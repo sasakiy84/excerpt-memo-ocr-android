@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import java.util.List;
 import org.junit.Test;
 
@@ -10,30 +10,30 @@ public final class PageReferencesTest {
     private static final OcrLine RIGHT = new OcrLine(650, 100, 950, 200, "右ページ");
 
     @Test public void oneDetectedFolioIsAppendedEvenThoughItIsExcludedFromBody() {
-        assertThat(new PageReferences(List.of(folio(500, "１２")), 1000).suffix(List.of(LEFT))).isEqualTo("（p. 12）");
+        assertEquals("（p. 12）", new PageReferences(List.of(folio(500, "１２")), 1000).suffix(List.of(LEFT)));
     }
     @Test public void selectionOnOnlyOneSideUsesOnlyThatPagesFolio() {
         var pages = new PageReferences(List.of(folio(100, "13"), folio(850, "12")), 1000);
-        assertThat(pages.suffix(List.of(RIGHT))).isEqualTo("（p. 12）");
-        assertThat(pages.suffix(List.of(LEFT))).isEqualTo("（p. 13）");
+        assertEquals("（p. 12）", pages.suffix(List.of(RIGHT)));
+        assertEquals("（p. 13）", pages.suffix(List.of(LEFT)));
     }
     @Test public void selectionAcrossSpreadUsesBothPrintedFolios() {
         var pages = new PageReferences(List.of(folio(100, "13"), folio(850, "12")), 1000);
-        assertThat(pages.suffix(List.of(RIGHT, LEFT))).isEqualTo("（pp. 12–13）");
-        assertThat(pages.order(List.of(LEFT, RIGHT))).containsExactly(RIGHT, LEFT).inOrder();
+        assertEquals("（pp. 12–13）", pages.suffix(List.of(RIGHT, LEFT)));
+        assertEquals(java.util.List.of(RIGHT, LEFT), pages.order(List.of(LEFT, RIGHT)));
     }
     @Test public void nonConsecutiveFoliosDoNotInventInterveningPages() {
         var pages = new PageReferences(List.of(folio(100, "12"), folio(850, "15")), 1000);
-        assertThat(pages.suffix(List.of(LEFT, RIGHT))).isEqualTo("（pp. 12, 15）");
+        assertEquals("（pp. 12, 15）", pages.suffix(List.of(LEFT, RIGHT)));
     }
     @Test public void ambiguousNumbersAreNotAppended() {
-        assertThat(new PageReferences(List.of(folio(100, "12"), folio(150, "13")), 1000).suffix(List.of(LEFT))).isEmpty();
-        assertThat(new PageReferences(List.of(folio(100, "12"), folio(500, "13"), folio(850, "14")), 1000).suffix(List.of(LEFT))).isEmpty();
-        assertThat(new PageReferences(List.of(folio(100, "12"), folio(850, "12")), 1000).suffix(List.of(LEFT))).isEmpty();
+        assertTrue(new PageReferences(List.of(folio(100, "12"), folio(150, "13")), 1000).suffix(List.of(LEFT)).isEmpty());
+        assertTrue(new PageReferences(List.of(folio(100, "12"), folio(500, "13"), folio(850, "14")), 1000).suffix(List.of(LEFT)).isEmpty());
+        assertTrue(new PageReferences(List.of(folio(100, "12"), folio(850, "12")), 1000).suffix(List.of(LEFT)).isEmpty());
     }
     @Test public void missingFolioAndEmptySelectionProduceNoReference() {
-        assertThat(new PageReferences(List.of(), 1000).suffix(List.of(LEFT))).isEmpty();
-        assertThat(new PageReferences(List.of(folio(100, "12")), 1000).suffix(List.of())).isEmpty();
-        assertThat(new PageReferences(List.of(folio(100, "第12章")), 1000).suffix(List.of(LEFT))).isEmpty();
+        assertTrue(new PageReferences(List.of(), 1000).suffix(List.of(LEFT)).isEmpty());
+        assertTrue(new PageReferences(List.of(folio(100, "12")), 1000).suffix(List.of()).isEmpty());
+        assertTrue(new PageReferences(List.of(folio(100, "第12章")), 1000).suffix(List.of(LEFT)).isEmpty());
     }
 }

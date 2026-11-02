@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
@@ -20,7 +20,7 @@ import org.robolectric.annotation.GraphicsMode;
 public final class OcrHostTest {
     private static Bitmap fixture(String name) throws Exception {
         try (InputStream input = OcrHostTest.class.getResourceAsStream("/" + name)) {
-            assertThat(input).isNotNull();
+            assertNotNull(input);
             return BitmapFactory.decodeStream(input);
         }
     }
@@ -30,12 +30,12 @@ public final class OcrHostTest {
             Bitmap page = fixture("horizontal.png");
             var progress = new java.util.ArrayList<String>();
             var result = engine.read(page, new Rect(0, 0, 1200, 700), new AtomicBoolean(), (stage, done, total) -> progress.add(stage + ":" + done + "/" + total));
-            assertThat(progress).containsExactly("NDL_DETECTION:0/1", "NDL_RECOGNITION:0/2", "NDL_RECOGNITION:1/2", "NDL_RECOGNITION:2/2").inOrder();
-            assertThat(result).hasSize(2);
-            assertThat(ReadingOrder.text(result)).isEqualTo("資料の文字をコピーする\nAndroid 16");
+            assertEquals(java.util.List.of("NDL_DETECTION:0/1", "NDL_RECOGNITION:0/2", "NDL_RECOGNITION:1/2", "NDL_RECOGNITION:2/2"), progress);
+            assertEquals(2, result.size());
+            assertEquals("資料の文字をコピーする\nAndroid 16", ReadingOrder.text(result));
             var cropped = engine.read(page, new Rect(20, 90, 1000, 220), new AtomicBoolean(), (stage, done, total) -> {});
-            assertThat(ReadingOrder.text(cropped)).isEqualTo("資料の文字をコピーする");
-            assertThat(cropped.get(0).top()).isAtLeast(90f);
+            assertEquals("資料の文字をコピーする", ReadingOrder.text(cropped));
+            assertTrue(cropped.get(0).top() >= 90f);
             page.recycle();
         }
     }
@@ -44,8 +44,8 @@ public final class OcrHostTest {
         try (OcrEngine engine = new OcrEngine(RuntimeEnvironment.getApplication())) {
             Bitmap page = fixture("vertical.png");
             var result = engine.read(page, new Rect(0, 0, page.getWidth(), page.getHeight()), new AtomicBoolean(), (stage, done, total) -> {});
-            assertThat(ReadingOrder.text(result)).contains("資料");
-            assertThat(result.stream().anyMatch(OcrLine::vertical)).isTrue();
+            assertTrue(ReadingOrder.text(result).contains("資料"));
+            assertTrue(result.stream().anyMatch(OcrLine::vertical));
             page.recycle();
         }
     }
@@ -54,7 +54,7 @@ public final class OcrHostTest {
         try (OcrEngine engine = new OcrEngine(RuntimeEnvironment.getApplication())) {
             Bitmap blank = Bitmap.createBitmap(800, 800, Bitmap.Config.ARGB_8888);
             blank.eraseColor(Color.WHITE);
-            assertThat(engine.read(blank, new Rect(0, 0, 800, 800), new AtomicBoolean(), (stage, done, total) -> {})).isEmpty();
+            assertTrue(engine.read(blank, new Rect(0, 0, 800, 800), new AtomicBoolean(), (stage, done, total) -> {}).isEmpty());
             blank.recycle();
         }
     }

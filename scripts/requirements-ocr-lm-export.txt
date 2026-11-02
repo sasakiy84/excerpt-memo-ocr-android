@@ -1,0 +1,4 @@
+# Optional, rejected LM research; never required by Android build or release.
+torch==2.15.0
+transformers==5.22.1
+onnx==1.23.2

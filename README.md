@@ -15,7 +15,7 @@ Java 21、Android SDK 36、Build Tools 36.0.0 を使います。
 ./gradlew connectedDebugAndroidTest
 ```
 
-クラウド環境は `bash scripts/setup-cloud.sh` で準備します。以降は `source /workspace/android-dev/env.sh` を実行し、`python3 scripts/gradle-cloud.py` を Gradle の代わりに使います。
+クラウド環境は `bash scripts/setup-cloud.sh` で準備します。Linux のホスト OCR テストには `python3 scripts/setup-opencv-host.py` で公式 OpenCV の JNI を準備します。以降は `source /workspace/android-dev/env.sh` を実行し、`python3 scripts/gradle-cloud.py` を Gradle の代わりに使います。
 
 検証範囲と端末テストの状況は [docs/testing.md](docs/testing.md) に記録しています。
 モデルと湾曲補正の比較・採用条件・再測定の手順は [docs/ocr-comparison.md](docs/ocr-comparison.md) に記録しています。
@@ -30,6 +30,8 @@ GitHub Actions の repository secrets に次の値を設定します。
 | `ANDROID_KEYSTORE_PASSWORD` | keystore と秘密鍵に共通のパスワード |
 
 鍵の alias は `excerpt-memo-release`。初版と同じ鍵を継続して使います。GitHub Release の公開には Actions が発行する `GITHUB_TOKEN` を使います。
+
+Gradle は未署名 APK を生成し、別ジョブで `scripts/sign-release.sh` を使って署名します。ビルドジョブへ署名鍵を渡しません。依存の取得元・ロック・ハッシュ検証は [依存関係の管理](docs/dependencies.md) を参照してください。
 
 テストと画面確認はローカルで実行します。`vMAJOR.MINOR.PATCH` のタグを push すると、Actions が署名付き APK をビルドし、APK と SHA256SUMS を公開します。
 

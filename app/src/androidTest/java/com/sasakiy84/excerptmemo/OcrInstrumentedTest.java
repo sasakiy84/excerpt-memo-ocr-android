@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -33,14 +33,14 @@ public final class OcrInstrumentedTest {
             Bitmap page = fixture();
             List<OcrLine> result = engine.read(page, new Rect(0, 0, 1200, 700), new AtomicBoolean(), (stage, done, total) -> {});
             String text = ReadingOrder.text(result);
-            assertThat(text).contains("資料");
-            assertThat(text).contains("コピー");
-            assertThat(text.toLowerCase()).contains("android");
-            assertThat(result).hasSize(2);
+            assertTrue(text.contains("資料"));
+            assertTrue(text.contains("コピー"));
+            assertTrue(text.toLowerCase().contains("android"));
+            assertEquals(2, result.size());
             List<OcrLine> crop = engine.read(page, new Rect(20, 90, 1000, 220), new AtomicBoolean(), (stage, done, total) -> {});
-            assertThat(ReadingOrder.text(crop)).contains("資料");
-            assertThat(ReadingOrder.text(crop).toLowerCase()).doesNotContain("android");
-            assertThat(crop.get(0).top()).isAtLeast(90f);
+            assertTrue(ReadingOrder.text(crop).contains("資料"));
+            assertFalse(ReadingOrder.text(crop).toLowerCase().contains("android"));
+            assertTrue(crop.get(0).top() >= 90f);
             page.recycle();
         }
     }
@@ -50,7 +50,7 @@ public final class OcrInstrumentedTest {
         try (OcrEngine engine = new OcrEngine(context)) {
             Bitmap blank = Bitmap.createBitmap(800, 800, Bitmap.Config.ARGB_8888);
             blank.eraseColor(Color.WHITE);
-            assertThat(engine.read(blank, new Rect(0, 0, 800, 800), new AtomicBoolean(), (stage, done, total) -> {})).isEmpty();
+            assertTrue(engine.read(blank, new Rect(0, 0, 800, 800), new AtomicBoolean(), (stage, done, total) -> {}).isEmpty());
             blank.recycle();
         }
     }
@@ -64,8 +64,8 @@ public final class OcrInstrumentedTest {
         for (int i = 0; i < phrase.length(); i++) canvas.drawText(phrase.substring(i, i + 1), 500, 120 + i * 70, paint);
         try (OcrEngine engine = new OcrEngine(context)) {
             List<OcrLine> result = engine.read(page, new Rect(0, 0, 800, 1000), new AtomicBoolean(), (stage, done, total) -> {});
-            assertThat(ReadingOrder.text(result)).contains("資料");
-            assertThat(result.stream().anyMatch(OcrLine::vertical)).isTrue();
+            assertTrue(ReadingOrder.text(result).contains("資料"));
+            assertTrue(result.stream().anyMatch(OcrLine::vertical));
         }
         page.recycle();
     }

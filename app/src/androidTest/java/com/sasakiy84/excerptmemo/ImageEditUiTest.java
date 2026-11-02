@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.RectF;
@@ -8,9 +8,9 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
-import com.google.android.material.appbar.MaterialToolbar;
-import com.google.android.material.button.MaterialButton;
-import com.google.android.material.slider.Slider;
+import android.widget.Toolbar;
+import android.widget.RadioButton;
+import android.widget.SeekBar;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -33,26 +33,26 @@ public final class ImageEditUiTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             DocumentUiTest.waitFor(scenario, activity -> !new ViewModelProvider(activity).get(DocumentViewModel.class).busy);
             scenario.onActivity(activity -> {
-                ((MaterialToolbar)activity.findViewById(R.id.toolbar)).getMenu().performIdentifierAction(2, 0);
+                ((Toolbar)activity.findViewById(R.id.toolbar)).getMenu().performIdentifierAction(2, 0);
                 activity.getSupportFragmentManager().executePendingTransactions();
                 var dialog = (ImageEditDialog)activity.getSupportFragmentManager().findFragmentByTag("image-edit");
-                assertThat(((MaterialButton)dialog.requireView().findViewById(R.id.edit_rectified)).isChecked()).isTrue();
+                assertTrue(((RadioButton)dialog.requireView().findViewById(R.id.edit_rectified)).isChecked());
                 ((ImageEditView)dialog.requireView().findViewById(R.id.image_editor)).setCrop(new RectF(.1f, .2f, .8f, .9f));
-                ((Slider)dialog.requireView().findViewById(R.id.rotation_slider)).setValue(7.5f);
+                ((SeekBar)dialog.requireView().findViewById(R.id.rotation_slider)).setProgress(525);
                 dialog.requireView().findViewById(R.id.edit_original).performClick();
-                ((Slider)dialog.requireView().findViewById(R.id.rotation_slider)).setValue(-3);
+                ((SeekBar)dialog.requireView().findViewById(R.id.rotation_slider)).setProgress(420);
             });
             scenario.recreate();
             scenario.onActivity(activity -> {
                 var dialog = (ImageEditDialog)activity.getSupportFragmentManager().findFragmentByTag("image-edit");
-                assertThat(((Slider)dialog.requireView().findViewById(R.id.rotation_slider)).getValue()).isEqualTo(-3);
+                assertEquals(420, ((SeekBar)dialog.requireView().findViewById(R.id.rotation_slider)).getProgress());
                 dialog.requireView().findViewById(R.id.edit_rectified).performClick();
-                assertThat(((ImageEditView)dialog.requireView().findViewById(R.id.image_editor)).getCrop()).isEqualTo(new RectF(.1f, .2f, .8f, .9f));
-                assertThat(((Slider)dialog.requireView().findViewById(R.id.rotation_slider)).getValue()).isEqualTo(7.5f);
+                assertEquals(new RectF(.1f, .2f, .8f, .9f), ((ImageEditView)dialog.requireView().findViewById(R.id.image_editor)).getCrop());
+                assertEquals(525, ((SeekBar)dialog.requireView().findViewById(R.id.rotation_slider)).getProgress());
                 var model = new ViewModelProvider(activity).get(DocumentViewModel.class);
-                assertThat(model.page.getHeight()).isEqualTo(1200);
-                assertThat(model.editorSource(false).getPixel(20, 20)).isEqualTo(Color.LTGRAY);
-                assertThat(model.editorSource(true).getPixel(20, 20)).isEqualTo(Color.WHITE);
+                assertEquals(1200, model.page.getHeight());
+                assertEquals(Color.LTGRAY, model.editorSource(false).getPixel(20, 20));
+                assertEquals(Color.WHITE, model.editorSource(true).getPixel(20, 20));
                 dialog.dismiss();
             });
         }

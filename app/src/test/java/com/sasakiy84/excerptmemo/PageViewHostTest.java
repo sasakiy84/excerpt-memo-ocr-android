@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import android.Manifest;
 import android.graphics.Bitmap;
 import android.view.MotionEvent;
@@ -53,8 +53,8 @@ public final class PageViewHostTest {
             touch(view, MotionEvent.ACTION_DOWN, 900 + dx, 180 + dy);
             touch(view, MotionEvent.ACTION_MOVE, 400 + dx, 180 + dy);
             touch(view, MotionEvent.ACTION_UP, 400 + dx, 180 + dy);
-            assertThat(model.text).isEqualTo("資料の");
-            assertThat(model.selectionEnd).isEqualTo(3);
+            assertEquals("資料の", model.text);
+            assertEquals(3, model.selectionEnd);
         } finally { DocumentExtractionHostTest.close(controller); }
     }
 
@@ -74,7 +74,7 @@ public final class PageViewHostTest {
             touch(view, MotionEvent.ACTION_DOWN, 350, 140);
             touch(view, MotionEvent.ACTION_MOVE, 250, 340);
             touch(view, MotionEvent.ACTION_UP, 250, 340);
-            assertThat(model.text).isEqualTo("の文字を読む\n選択");
+            assertEquals("の文字を読む\n選択", model.text);
         } finally { DocumentExtractionHostTest.close(controller); }
     }
 
@@ -95,8 +95,8 @@ public final class PageViewHostTest {
             touch(view, MotionEvent.ACTION_DOWN, 580 + dx, 100 + dy);
             touch(view, MotionEvent.ACTION_MOVE, 580 + dx, 400 + dy);
             touch(view, MotionEvent.ACTION_UP, 580 + dx, 400 + dy);
-            assertThat(model.text).isEqualTo("文字を読む");
-            assertThat(model.selectionStart).isEqualTo(3);
+            assertEquals("文字を読む", model.text);
+            assertEquals(3, model.selectionStart);
         } finally { DocumentExtractionHostTest.close(controller); }
     }
 

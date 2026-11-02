@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import android.graphics.*;
 import android.view.MotionEvent;
 import android.widget.FrameLayout;
@@ -21,17 +21,17 @@ public final class ImageEditsTest {
         Canvas canvas = new Canvas(input); canvas.drawColor(Color.WHITE);
         Paint paint = new Paint(); paint.setColor(Color.RED); canvas.drawRect(0, 0, 100, 150, paint);
         Bitmap output = ImageEdits.apply(input, 90, new RectF(.5f, 0, 1, .5f));
-        assertThat(output.getWidth()).isEqualTo(150);
-        assertThat(output.getHeight()).isEqualTo(100);
-        assertThat(output.getPixel(75, 50)).isEqualTo(Color.RED);
+        assertEquals(150, output.getWidth());
+        assertEquals(100, output.getHeight());
+        assertEquals(Color.RED, output.getPixel(75, 50));
     }
     @Test public void fineRotationDoesNotStretchTheSourceAndFillsCornersWhite() {
         Bitmap input = Bitmap.createBitmap(200, 300, Bitmap.Config.ARGB_8888); input.eraseColor(Color.BLUE);
         Bitmap output = ImageEdits.apply(input, 12, new RectF(0, 0, 1, 1));
-        assertThat(output.getWidth()).isGreaterThan(200);
-        assertThat(output.getHeight()).isGreaterThan(300);
-        assertThat(output.getPixel(0, 0)).isEqualTo(Color.WHITE);
-        assertThat(output.getPixel(output.getWidth()/2, output.getHeight()/2)).isEqualTo(Color.BLUE);
+        assertTrue(output.getWidth() > 200);
+        assertTrue(output.getHeight() > 300);
+        assertEquals(Color.WHITE, output.getPixel(0, 0));
+        assertEquals(Color.BLUE, output.getPixel(output.getWidth()/2, output.getHeight()/2));
     }
     @Test public void draggingCropCornerAndInteriorChangesAndMovesTheSelection() {
         var context = RuntimeEnvironment.getApplication();
@@ -40,11 +40,11 @@ public final class ImageEditsTest {
         editor.layout(0, 0, 600, 1000);
         editor.draw(new Canvas(Bitmap.createBitmap(600, 1000, Bitmap.Config.ARGB_8888)));
         touch(editor, 0, 20, 80); touch(editor, 2, 76, 164); touch(editor, 1, 76, 164);
-        assertThat(editor.getCrop().left).isWithin(.001f).of(.1f);
-        assertThat(editor.getCrop().top).isWithin(.001f).of(.1f);
+        assertEquals(.1f, editor.getCrop().left, .001f);
+        assertEquals(.1f, editor.getCrop().top, .001f);
         touch(editor, 0, 300, 500); touch(editor, 2, 244, 416); touch(editor, 1, 244, 416);
-        assertThat(editor.getCrop().left).isWithin(.001f).of(0);
-        assertThat(editor.getCrop().right).isWithin(.001f).of(.9f);
+        assertEquals(0, editor.getCrop().left, .001f);
+        assertEquals(.9f, editor.getCrop().right, .001f);
     }
     @Test public void appliedCropIsReadAutomaticallyWithRealModels() throws Exception {
         var app = RuntimeEnvironment.getApplication();
@@ -58,14 +58,14 @@ public final class ImageEditsTest {
             model.pageRectified = true;
             model.applyImageEdit(0, new RectF(0, .1f, 1, .36f));
             DocumentExtractionHostTest.awaitIdle(model);
-            assertThat(model.page.getHeight()).isEqualTo(182);
-            assertThat(model.pageRectified).isFalse();
-            assertThat(model.text).contains("資料");
-            assertThat(model.text.toLowerCase()).doesNotContain("android");
+            assertEquals(182, model.page.getHeight());
+            assertFalse(model.pageRectified);
+            assertTrue(model.text.contains("資料"));
+            assertFalse(model.text.toLowerCase().contains("android"));
             model.applyImageEdit(0, new RectF(0, 0, 1, 1));
             DocumentExtractionHostTest.awaitIdle(model);
-            assertThat(model.page.getHeight()).isEqualTo(700);
-            assertThat(model.text.toLowerCase()).contains("android");
+            assertEquals(700, model.page.getHeight());
+            assertTrue(model.text.toLowerCase().contains("android"));
         } finally { DocumentExtractionHostTest.close(controller); }
     }
     @Test public void editorRetainsCropAndFineAngleAfterActivityRecreationAndCancelDoesNotEditImage() throws Exception {
@@ -78,22 +78,22 @@ public final class ImageEditsTest {
             var model = new androidx.lifecycle.ViewModelProvider(activity).get(DocumentViewModel.class);
             DocumentExtractionHostTest.awaitIdle(model);
             model.page = Bitmap.createBitmap(1200, 1700, Bitmap.Config.ARGB_8888);
-            ((com.google.android.material.appbar.MaterialToolbar) activity.findViewById(R.id.toolbar)).getMenu().performIdentifierAction(2, 0);
+            ((android.widget.Toolbar) activity.findViewById(R.id.toolbar)).getMenu().performIdentifierAction(2, 0);
             activity.getSupportFragmentManager().executePendingTransactions();
             var dialog = (ImageEditDialog) activity.getSupportFragmentManager().findFragmentByTag("image-edit");
             ((ImageEditView) dialog.requireView().findViewById(R.id.image_editor)).setCrop(new RectF(.1f, .2f, .8f, .9f));
             dialog.requireView().findViewById(R.id.rotate_image_quarter).performClick();
-            ((com.google.android.material.slider.Slider) dialog.requireView().findViewById(R.id.rotation_slider)).setValue(7.5f);
+            ((android.widget.SeekBar) dialog.requireView().findViewById(R.id.rotation_slider)).setProgress(525);
             controller.recreate(); activity = controller.get();
             dialog = (ImageEditDialog) activity.getSupportFragmentManager().findFragmentByTag("image-edit");
             RectF restoredCrop = ((ImageEditView) dialog.requireView().findViewById(R.id.image_editor)).getCrop();
-            assertThat(restoredCrop.left).isWithin(.001f).of(.1f);
-            assertThat(restoredCrop.top).isWithin(.001f).of(.1f);
-            assertThat(restoredCrop.right).isWithin(.001f).of(.8f);
-            assertThat(restoredCrop.bottom).isWithin(.001f).of(.8f);
-            assertThat(((com.google.android.material.slider.Slider) dialog.requireView().findViewById(R.id.rotation_slider)).getValue()).isEqualTo(7.5f);
+            assertEquals(.1f, restoredCrop.left, .001f);
+            assertEquals(.1f, restoredCrop.top, .001f);
+            assertEquals(.8f, restoredCrop.right, .001f);
+            assertEquals(.8f, restoredCrop.bottom, .001f);
+            assertEquals(525, ((android.widget.SeekBar) dialog.requireView().findViewById(R.id.rotation_slider)).getProgress());
             dialog.dismiss(); activity.getSupportFragmentManager().executePendingTransactions();
-            assertThat(new androidx.lifecycle.ViewModelProvider(activity).get(DocumentViewModel.class).page.getWidth()).isEqualTo(1200);
+            assertEquals(1200, new androidx.lifecycle.ViewModelProvider(activity).get(DocumentViewModel.class).page.getWidth());
         } finally { DocumentExtractionHostTest.close(controller); }
     }
     @Test public void correctedCropSurvivesProcessRestoreAndCanReturnToEitherBase() throws Exception {
@@ -103,13 +103,13 @@ public final class ImageEditsTest {
         var controller = org.robolectric.Robolectric.buildActivity(MainActivity.class).setup();
         var model = new androidx.lifecycle.ViewModelProvider(controller.get()).get(DocumentViewModel.class);
         DocumentExtractionHostTest.awaitIdle(model);
-        assertThat(model.editRectified).isTrue();
+        assertTrue(model.editRectified);
         model.applyImageEdit(0, new RectF(0, .1f, 1, .36f), true);
         DocumentExtractionHostTest.awaitIdle(model);
-        assertThat(model.page.getHeight()).isEqualTo(182);
-        assertThat(model.pageRectified).isTrue();
-        assertThat(model.text).contains("資料");
-        assertThat(model.text.toLowerCase()).doesNotContain("android");
+        assertEquals(182, model.page.getHeight());
+        assertTrue(model.pageRectified);
+        assertTrue(model.text.contains("資料"));
+        assertFalse(model.text.toLowerCase().contains("android"));
         long deadline = System.nanoTime() + 5_000_000_000L;
         var state = new java.io.File(app.getFilesDir(), "page.json");
         while (!new String(java.nio.file.Files.readAllBytes(state.toPath()), java.nio.charset.StandardCharsets.UTF_8).contains("rectifiedEditCrop") && System.nanoTime() < deadline) Thread.sleep(10);
@@ -118,23 +118,23 @@ public final class ImageEditsTest {
         try {
             model = new androidx.lifecycle.ViewModelProvider(controller.get()).get(DocumentViewModel.class);
             DocumentExtractionHostTest.awaitIdle(model);
-            assertThat(model.page.getHeight()).isEqualTo(182);
-            assertThat(model.editorSource(true).getHeight()).isEqualTo(700);
-            assertThat(model.editorSource(false).getHeight()).isEqualTo(900);
-            assertThat(model.rectifiedEditCrop.top).isWithin(.001f).of(.1f);
+            assertEquals(182, model.page.getHeight());
+            assertEquals(700, model.editorSource(true).getHeight());
+            assertEquals(900, model.editorSource(false).getHeight());
+            assertEquals(.1f, model.rectifiedEditCrop.top, .001f);
             model.applyImageEdit(0, new RectF(0, 0, 1, 1), true);
             DocumentExtractionHostTest.awaitIdle(model);
-            assertThat(model.page.getHeight()).isEqualTo(700);
-            assertThat(model.pageRectified).isTrue();
-            assertThat(model.text.toLowerCase()).contains("android");
+            assertEquals(700, model.page.getHeight());
+            assertTrue(model.pageRectified);
+            assertTrue(model.text.toLowerCase().contains("android"));
             model.applyImageEdit(0, new RectF(0, 0, 1, 1), false);
             DocumentExtractionHostTest.awaitIdle(model);
-            assertThat(model.page.getHeight()).isEqualTo(900);
-            assertThat(model.pageRectified).isFalse();
-            assertThat(model.hasRectifiedImage()).isTrue();
-            assertThat(model.editorSource(false).getPixel(20, 20)).isEqualTo(Color.BLUE);
+            assertEquals(900, model.page.getHeight());
+            assertFalse(model.pageRectified);
+            assertTrue(model.hasRectifiedImage());
+            assertEquals(Color.BLUE, model.editorSource(false).getPixel(20, 20));
             model.closePage().get();
-            assertThat(new java.io.File(app.getFilesDir(), "rectified.png").exists()).isFalse();
+            assertFalse(new java.io.File(app.getFilesDir(), "rectified.png").exists());
         } finally { DocumentExtractionHostTest.close(controller); }
     }
     @Test public void switchingEditBasePreservesBothDraftsAcrossActivityRecreation() throws Exception {
@@ -146,22 +146,22 @@ public final class ImageEditsTest {
             var activity = controller.get();
             var restoredModel = new androidx.lifecycle.ViewModelProvider(activity).get(DocumentViewModel.class);
             DocumentExtractionHostTest.awaitIdle(restoredModel);
-            assertThat(restoredModel.page).isNotNull();
-            ((com.google.android.material.appbar.MaterialToolbar) activity.findViewById(R.id.toolbar)).getMenu().performIdentifierAction(2, 0);
+            assertNotNull(restoredModel.page);
+            ((android.widget.Toolbar) activity.findViewById(R.id.toolbar)).getMenu().performIdentifierAction(2, 0);
             activity.getSupportFragmentManager().executePendingTransactions();
             var dialog = (ImageEditDialog) activity.getSupportFragmentManager().findFragmentByTag("image-edit");
-            assertThat(((com.google.android.material.button.MaterialButton)dialog.requireView().findViewById(R.id.edit_rectified)).isChecked()).isTrue();
+            assertTrue(((android.widget.RadioButton)dialog.requireView().findViewById(R.id.edit_rectified)).isChecked());
             ((ImageEditView) dialog.requireView().findViewById(R.id.image_editor)).setCrop(new RectF(.1f, .2f, .8f, .9f));
-            ((com.google.android.material.slider.Slider) dialog.requireView().findViewById(R.id.rotation_slider)).setValue(7.5f);
+            ((android.widget.SeekBar) dialog.requireView().findViewById(R.id.rotation_slider)).setProgress(525);
             dialog.requireView().findViewById(R.id.edit_original).performClick();
-            assertThat(((ImageEditView) dialog.requireView().findViewById(R.id.image_editor)).getCrop()).isEqualTo(new RectF(0, 0, 1, 1));
-            ((com.google.android.material.slider.Slider) dialog.requireView().findViewById(R.id.rotation_slider)).setValue(-3);
+            assertEquals(new RectF(0, 0, 1, 1), ((ImageEditView) dialog.requireView().findViewById(R.id.image_editor)).getCrop());
+            ((android.widget.SeekBar) dialog.requireView().findViewById(R.id.rotation_slider)).setProgress(420);
             controller.recreate(); activity = controller.get();
             dialog = (ImageEditDialog) activity.getSupportFragmentManager().findFragmentByTag("image-edit");
-            assertThat(((com.google.android.material.slider.Slider) dialog.requireView().findViewById(R.id.rotation_slider)).getValue()).isEqualTo(-3);
+            assertEquals(420, ((android.widget.SeekBar) dialog.requireView().findViewById(R.id.rotation_slider)).getProgress());
             dialog.requireView().findViewById(R.id.edit_rectified).performClick();
-            assertThat(((ImageEditView) dialog.requireView().findViewById(R.id.image_editor)).getCrop()).isEqualTo(new RectF(.1f, .2f, .8f, .9f));
-            assertThat(((com.google.android.material.slider.Slider) dialog.requireView().findViewById(R.id.rotation_slider)).getValue()).isEqualTo(7.5f);
+            assertEquals(new RectF(.1f, .2f, .8f, .9f), ((ImageEditView) dialog.requireView().findViewById(R.id.image_editor)).getCrop());
+            assertEquals(525, ((android.widget.SeekBar) dialog.requireView().findViewById(R.id.rotation_slider)).getProgress());
             android.view.View root = dialog.requireView();
             root.measure(android.view.View.MeasureSpec.makeMeasureSpec(411, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(800, android.view.View.MeasureSpec.EXACTLY));
             root.layout(0, 0, 411, 800);
@@ -170,7 +170,7 @@ public final class ImageEditsTest {
             try (var out = new java.io.FileOutputStream(new java.io.File(directory, "edit-corrected.png"))) { shot.compress(Bitmap.CompressFormat.PNG, 100, out); }
             shot.recycle();
             dialog.dismiss(); activity.getSupportFragmentManager().executePendingTransactions();
-            assertThat(new androidx.lifecycle.ViewModelProvider(activity).get(DocumentViewModel.class).page.getHeight()).isEqualTo(700);
+            assertEquals(700, new androidx.lifecycle.ViewModelProvider(activity).get(DocumentViewModel.class).page.getHeight());
         } finally { DocumentExtractionHostTest.close(controller); }
     }
     private android.app.Application savedCorrection() throws Exception {

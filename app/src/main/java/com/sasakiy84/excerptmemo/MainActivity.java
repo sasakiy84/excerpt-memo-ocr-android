@@ -24,7 +24,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.FragmentActivity;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.FocusMeteringAction;
@@ -32,27 +32,23 @@ import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
-import androidx.camera.view.PreviewView;
+import android.app.AlertDialog;
+import android.widget.*;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.ViewModelProvider;
-import com.google.android.material.appbar.MaterialToolbar;
-import com.google.android.material.button.MaterialButton;
-import com.google.android.material.button.MaterialButtonToggleGroup;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.snackbar.Snackbar;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-public final class MainActivity extends AppCompatActivity {
+public final class MainActivity extends FragmentActivity {
     private DocumentViewModel document;
     private PageView pageView;
     private EditText resultText;
-    private PreviewView preview;
-    private MaterialToolbar toolbar;
+    private CameraPreview preview;
+    private Toolbar toolbar;
     private ProcessCameraProvider cameraProvider;
     private ImageCapture imageCapture;
     private boolean cameraStarting, capturing, updatingText;
@@ -62,7 +58,7 @@ public final class MainActivity extends AppCompatActivity {
             new ActivityResultContracts.RequestPermission(), granted -> {
                 if (granted) startCamera();
                 else if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
-                    new MaterialAlertDialogBuilder(this).setMessage(R.string.permission_rationale)
+                    new AlertDialog.Builder(this).setMessage(R.string.permission_rationale)
                             .setNegativeButton(R.string.cancel, null)
                             .setPositiveButton(R.string.settings, (dialog, which) -> startActivity(new Intent(
                                     Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", getPackageName(), null))))
@@ -100,7 +96,6 @@ public final class MainActivity extends AppCompatActivity {
         });
         toolbar.setNavigationOnClickListener(view -> leaveDocument());
         preview = findViewById(R.id.preview);
-        preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
         pageView = findViewById(R.id.page_view);
         pageView.setSelectionListener((start, end) -> document.select(start, end));
         ((TextDrawer) findViewById(R.id.text_drawer)).setSizeListener(fraction -> document.textPanelFraction = fraction);
@@ -115,8 +110,7 @@ public final class MainActivity extends AppCompatActivity {
             }
             @Override public void afterTextChanged(Editable value) {}
         });
-        ((MaterialButtonToggleGroup) findViewById(R.id.mode_toggle)).addOnButtonCheckedListener((group, id, checked) -> {
-            if (!checked) return;
+        ((RadioGroup) findViewById(R.id.mode_toggle)).setOnCheckedChangeListener((group, id) -> {
             document.textMode = id == R.id.text_mode;
             resultText.clearFocus();
             render();
@@ -177,17 +171,17 @@ public final class MainActivity extends AppCompatActivity {
                 resultText.setText(document.text);
                 updatingText = false;
             }
-            MaterialButtonToggleGroup modes = findViewById(R.id.mode_toggle);
+            RadioGroup modes = findViewById(R.id.mode_toggle);
             modes.setVisibility(hasText ? View.VISIBLE : View.GONE);
             int modeId = document.textMode ? R.id.text_mode : R.id.page_mode;
-            if (modes.getCheckedButtonId() != modeId) modes.check(modeId);
+            if (modes.getCheckedRadioButtonId() != modeId) modes.check(modeId);
             TextView status = findViewById(R.id.status);
             status.setText(document.status);
             status.setVisibility(document.status.isEmpty() ? View.GONE : View.VISIBLE);
             findViewById(R.id.progress).setVisibility(document.busy ? View.VISIBLE : View.GONE);
-            MaterialButton readButton = findViewById(R.id.read_button);
+            Button readButton = findViewById(R.id.read_button);
             readButton.setText(document.busy ? R.string.cancel : hasText ? R.string.reread : R.string.read);
-            readButton.setIconResource(document.busy ? R.drawable.ic_close : R.drawable.ic_refresh);
+            readButton.setCompoundDrawablesRelativeWithIntrinsicBounds(document.busy ? R.drawable.ic_close : R.drawable.ic_refresh, 0, 0, 0);
             findViewById(R.id.copy_button).setEnabled(!document.busy && !document.text.isBlank());
         } else {
             boolean granted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
@@ -195,14 +189,14 @@ public final class MainActivity extends AppCompatActivity {
             findViewById(R.id.shutter).setEnabled(granted && imageCapture != null && !document.busy && !capturing);
             if (granted && !document.busy) startCamera();
             if (!document.status.isEmpty()) {
-                Snackbar.make(findViewById(R.id.root), document.status, Snackbar.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, document.status, Toast.LENGTH_LONG).show();
                 document.status = "";
             }
         }
     }
 
     private void showExtractionOptions() {
-        var sheet = new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+        var sheet = new android.app.Dialog(this);
         View content = getLayoutInflater().inflate(R.layout.extraction_options, null);
         sheet.setContentView(content);
         int[] ids = {R.id.include_page_numbers, R.id.include_ruby, R.id.include_tables};
@@ -213,12 +207,14 @@ public final class MainActivity extends AppCompatActivity {
                         ((android.widget.CompoundButton) content.findViewById(ids[1])).isChecked(),
                         ((android.widget.CompoundButton) content.findViewById(ids[2])).isChecked()));
         sheet.show();
+        sheet.getWindow().setLayout(-1, -2);
+        sheet.getWindow().setGravity(android.view.Gravity.BOTTOM);
     }
 
     private void requestCamera() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) startCamera();
         else if (shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
-            new MaterialAlertDialogBuilder(this).setMessage(R.string.permission_rationale)
+            new AlertDialog.Builder(this).setMessage(R.string.permission_rationale)
                     .setNegativeButton(R.string.cancel, null)
                     .setPositiveButton(R.string.camera_permission, (dialog, which) -> permission.launch(Manifest.permission.CAMERA)).show();
         } else permission.launch(Manifest.permission.CAMERA);
@@ -234,18 +230,19 @@ public final class MainActivity extends AppCompatActivity {
             if (isDestroyed() || document.page != null || document.busy) return;
             try {
                 cameraProvider = future.get();
-                Preview cameraPreview = new Preview.Builder().build();
-                cameraPreview.setSurfaceProvider(preview.getSurfaceProvider());
+                Preview cameraPreview = new Preview.Builder().setTargetRotation(preview.getDisplay().getRotation()).build();
                 imageCapture = new ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                         .setTargetRotation(preview.getDisplay().getRotation()).build();
                 CameraSelector selector = cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)
                         ? CameraSelector.DEFAULT_BACK_CAMERA : CameraSelector.DEFAULT_FRONT_CAMERA;
+                preview.setUseCase(cameraPreview, selector == CameraSelector.DEFAULT_FRONT_CAMERA);
+                cameraPreview.setSurfaceProvider(preview.getSurfaceProvider());
                 cameraProvider.unbindAll();
                 Camera camera = cameraProvider.bindToLifecycle(this, selector, cameraPreview, imageCapture);
                 preview.setOnTouchListener((view, event) -> {
                     if (event.getAction() == MotionEvent.ACTION_UP) {
                         camera.getCameraControl().startFocusAndMetering(new FocusMeteringAction.Builder(
-                                preview.getMeteringPointFactory().createPoint(event.getX(), event.getY())).build());
+                                preview.meteringPoint(event.getX(), event.getY())).build());
                         view.performClick();
                     }
                     return true;
@@ -254,7 +251,7 @@ public final class MainActivity extends AppCompatActivity {
             } catch (Exception exception) {
                 imageCapture = null;
                 Log.e("ExcerptMemo", "Camera startup failed", exception);
-                Snackbar.make(findViewById(R.id.root), R.string.camera_unavailable, Snackbar.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, R.string.camera_unavailable, Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -283,7 +280,7 @@ public final class MainActivity extends AppCompatActivity {
                             Log.e("ExcerptMemo", "Capture failed", exception);
                             if (!isDestroyed()) {
                                 render();
-                                Snackbar.make(findViewById(R.id.root), R.string.capture_failed, Snackbar.LENGTH_LONG).show();
+                                Toast.makeText(MainActivity.this, R.string.capture_failed, Toast.LENGTH_LONG).show();
                             }
                         }
                     });
@@ -296,9 +293,9 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void showLicenses() {
-        String[] names = {"NDLOCR-Lite", "NDLOCR-Lite dependencies", "DINOv3", "ONNX Runtime", "ONNX Runtime dependencies", "AndroidX / Material", "PaddleOCR / UVDoc", "PaddleOCR license", "UVDoc license", "OpenCV"};
+        String[] names = {"NDLOCR-Lite", "NDLOCR-Lite dependencies", "DINOv3", "ONNX Runtime", "ONNX Runtime dependencies", "AndroidX", "PaddleOCR / UVDoc", "PaddleOCR license", "UVDoc license", "OpenCV"};
         String[] files = {"NOTICE.txt", "NDLOCR-Lite-LICENCE_DEPENDENCEIES.txt", "DINOv3-LICENSE.md", "ONNX-Runtime-LICENSE.txt", "ONNX-Runtime-ThirdPartyNotices.txt", "Android-LICENSE.txt", "PaddleOCR-NOTICE.txt", "PaddleOCR-LICENSE.txt", "UVDoc-LICENSE.txt", "OpenCV-LICENSE.txt"};
-        new MaterialAlertDialogBuilder(this).setTitle(R.string.licenses).setItems(names, (dialog, which) -> {
+        new AlertDialog.Builder(this).setTitle(R.string.licenses).setItems(names, (dialog, which) -> {
             try (InputStream input = getAssets().open("licenses/" + files[which])) {
                 TextView text = new TextView(this);
                 int padding = Math.round(20 * getResources().getDisplayMetrics().density);
@@ -306,7 +303,7 @@ public final class MainActivity extends AppCompatActivity {
                 text.setText(new String(input.readAllBytes(), StandardCharsets.UTF_8));
                 text.setTextIsSelectable(true);
                 ScrollView scroll = new ScrollView(this); scroll.addView(text);
-                new MaterialAlertDialogBuilder(this).setTitle(names[which]).setView(scroll).setPositiveButton(android.R.string.ok, null).show();
+                new AlertDialog.Builder(this).setTitle(names[which]).setView(scroll).setPositiveButton(android.R.string.ok, null).show();
             } catch (Exception exception) { Log.e("ExcerptMemo", "License missing", exception); }
         }).show();
     }

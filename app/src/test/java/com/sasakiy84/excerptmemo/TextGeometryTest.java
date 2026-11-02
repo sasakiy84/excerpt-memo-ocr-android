@@ -1,6 +1,6 @@
 package com.sasakiy84.excerptmemo;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.*;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -14,33 +14,33 @@ import org.robolectric.annotation.GraphicsMode;
 public final class TextGeometryTest {
     @Test public void supplementaryKanjiAndCombiningMarksAreNeverSplit() {
         TextGeometry geometry = new TextGeometry(List.of(new OcrLine(0, 0, 400, 40, "𠮷か\u3099文字")));
-        assertThat(geometry.next(0)).isEqualTo(2);
-        assertThat(geometry.next(2)).isEqualTo(4);
-        assertThat(geometry.previous(4)).isEqualTo(2);
-        assertThat(geometry.snap(1, false)).isEqualTo(0);
-        assertThat(geometry.snap(3, true)).isEqualTo(4);
+        assertEquals(2, geometry.next(0));
+        assertEquals(4, geometry.next(2));
+        assertEquals(2, geometry.previous(4));
+        assertEquals(0, geometry.snap(1, false));
+        assertEquals(4, geometry.snap(3, true));
     }
     @Test public void partialVerticalHighlightStopsAtCharacterBoundary() {
         TextGeometry geometry = new TextGeometry(List.of(new OcrLine(100, 100, 150, 500, "資料抜粋")));
         var highlight = geometry.highlight(0, 1, 3);
-        assertThat(highlight.left).isEqualTo(100f);
-        assertThat(highlight.top).isEqualTo(200f);
-        assertThat(highlight.bottom).isEqualTo(400f);
-        assertThat(geometry.nearest(120, 320, false)).isEqualTo(2);
+        assertEquals(100f, highlight.left, 0f);
+        assertEquals(200f, highlight.top, 0f);
+        assertEquals(400f, highlight.bottom, 0f);
+        assertEquals(2, geometry.nearest(120, 320, false));
     }
     @Test public void rangeAcrossLinesIncludesOnlyTheRequestedCharacters() {
         TextGeometry geometry = new TextGeometry(List.of(new OcrLine(0, 0, 400, 40, "資料抜粋"), new OcrLine(0, 100, 400, 140, "文字選択")));
-        assertThat(geometry.snap(4, true)).isEqualTo(4);
-        assertThat(geometry.next(3)).isEqualTo(4);
-        assertThat(geometry.text.substring(2, 7)).isEqualTo("抜粋\n文字");
-        assertThat(geometry.endpoint(4, true).x).isEqualTo(400f);
-        assertThat(geometry.endpoint(5, false).y).isEqualTo(140f);
-        assertThat(geometry.highlight(1, 2, 7).right).isWithin(1f).of(200f);
+        assertEquals(4, geometry.snap(4, true));
+        assertEquals(4, geometry.next(3));
+        assertEquals("抜粋\n文字", geometry.text.substring(2, 7));
+        assertEquals(400f, geometry.endpoint(4, true).x, 0f);
+        assertEquals(140f, geometry.endpoint(5, false).y, 0f);
+        assertEquals(200f, geometry.highlight(1, 2, 7).right, 1f);
     }
     @Test public void horizontalLatinPositionsUseGlyphWidths() {
         TextGeometry geometry = new TextGeometry(List.of(new OcrLine(0, 0, 300, 40, "WiW")));
         float wide = geometry.highlight(0, 0, 1).width();
         float narrow = geometry.highlight(0, 1, 2).width();
-        assertThat(wide).isGreaterThan(narrow * 2);
+        assertTrue(wide > narrow * 2);
     }
 }

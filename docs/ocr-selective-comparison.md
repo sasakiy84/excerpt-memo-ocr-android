@@ -78,7 +78,7 @@ medium は [PaddlePaddle 公式 ONNX](https://huggingface.co/PaddlePaddle/PP-OCR
 
 ## 再現
 
-私有画像を `input/`、正解 JSON を `lm/gold.private.json` に置く。Python には `scripts/requirements-selective-ocr.txt` を使用する。medium の ONNX と公式 `inference.yml` を同じ `lm/` に `medium-inference.onnx`、`medium-inference.yml` として置く。LM の固定コミットから config、vocab、model.safetensors を取得し、`export-ocr-language.py` で ONNX に書き出す。今回の書出し環境は torch 2.15.0+cpu、transformers 5.22.1、onnx 1.23.2。LM の別モデル比較時は別の作業ディレクトリを使う。
+私有画像を `input/`、正解 JSON を `lm/gold.private.json` に置く。Python には `scripts/requirements-selective-ocr.txt` を使用する。medium の ONNX を `lm/medium-inference.onnx` に置く。文字表は同一性を確認済みのアプリ内 JSON を使う。LM の固定コミットから config、vocab、model.safetensors を取得し、`export-ocr-language.py` で ONNX に書き出す。書出し専用の依存は `scripts/requirements-ocr-lm-export.txt` に分離する。今回の書出し環境は torch 2.15.0+cpu、transformers 5.22.1、onnx 1.23.2。LM の別モデル比較時は別の作業ディレクトリを使う。
 
 ```sh
 python3 scripts/export-ocr-language.py /path/to/evaluation/lm

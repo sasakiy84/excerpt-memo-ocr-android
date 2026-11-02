@@ -9,4 +9,6 @@
 - 必須確認: `python3 scripts/verify-models.py`、`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest`。OCR/操作の変更は Android 16 の `connectedDebugAndroidTest` も実行する。
 - 署名情報とトークンをログ、Git、公開アセットへ入れない。
 - テストと画面確認はローカルで実行する。GitHub Actions は署名付き APK のビルドとリリース公開だけに使う。
-- リリース版は `ANDROID_KEYSTORE_PATH` と `ANDROID_KEYSTORE_PASSWORD` が必要。alias は `excerpt-memo-release`。
+- Gradle はリリース未署名 APK を生成する。終了後に `scripts/sign-release.sh` で署名する。署名工程だけに `ANDROID_KEYSTORE_PATH` と `ANDROID_KEYSTORE_PASSWORD` を渡す。alias は `excerpt-memo-release`。
+- ホスト OCR テストは `python3 scripts/setup-opencv-host.py` で公式ソースから同じ版の OpenCV JNI を用意する。
+- 依存更新時は Gradle lockfile と SHA-256 verification-metadata.xml を明示的に更新し、上流配布元・差分を確認する。通常ビルドで検証を無効化しない。
