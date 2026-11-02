@@ -43,6 +43,7 @@ public final class DocumentViewModel extends AndroidViewModel {
     public OcrLanguage language;
     public boolean includePageNumbers, includeRuby, includeTables;
     public String text = "", status = "";
+    public double processingSeconds = -1;
     private int[] textOrigins = new int[0];
     public boolean busy, textMode;
     public float textPanelFraction = .28f;
@@ -82,6 +83,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                         language = OcrLanguage.from(json.optString("language", "ja"));
                         page = restored; sourcePage = source; allLines = restoredLines;
                         pageRectified = json.optBoolean("pageRectified");
+                        processingSeconds = json.optDouble("processingSeconds", -1);
                         rectifiedPage = rectified;
                         editRectified = rectified != null && json.optBoolean("editRectified", pageRectified);
                         rectifiedEditAngle = (float) json.optDouble("rectifiedEditAngle", 0);
@@ -138,7 +140,7 @@ public final class DocumentViewModel extends AndroidViewModel {
         cancellation.set(true);
         cancellation = new AtomicBoolean();
         AtomicBoolean token = cancellation;
-        busy = true; status = getApplication().getString(R.string.image_loading); changed();
+        processingSeconds = -1; busy = true; status = getApplication().getString(R.string.image_loading); changed();
         worker.execute(() -> {
             try {
                 Bitmap decoded = decode(ImageDecoder.createSource(getApplication().getContentResolver(), uri));
@@ -180,7 +182,7 @@ public final class DocumentViewModel extends AndroidViewModel {
         AtomicBoolean token = new AtomicBoolean(); cancellation = token;
         Bitmap original = editorSource(fromRectified);
         android.graphics.RectF selection = new android.graphics.RectF(crop);
-        busy = true; status = getApplication().getString(R.string.image_loading); changed();
+        processingSeconds = -1; busy = true; status = getApplication().getString(R.string.image_loading); changed();
         worker.execute(() -> {
             try {
                 Bitmap edited = ImageEdits.apply(original, degrees, selection);
@@ -221,7 +223,8 @@ public final class DocumentViewModel extends AndroidViewModel {
         Bitmap source = page;
         boolean alreadyRectified = pageRectified;
         OcrLanguage selectedLanguage = language;
-        busy = true; status = getApplication().getString(R.string.loading_model); changed();
+        long started = System.nanoTime();
+        processingSeconds = -1; busy = true; status = getApplication().getString(R.string.loading_model); changed();
         worker.execute(() -> {
             try {
                 if (engine == null) engine = new OcrEngine(getApplication());
@@ -241,6 +244,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                 if (token.get()) { if (recognized.image() != source) recognized.image().recycle(); return; }
                 if (recognized.image() != source) writeImage(recognized.image());
                 if (recognized.rectified()) writeBitmap(recognized.image(), rectifiedFile());
+                double elapsed = (System.nanoTime() - started) / 1_000_000_000.0;
                 main.post(() -> {
                     if (token.get()) { if (recognized.image() != source) recognized.image().recycle(); return; }
                     page = recognized.image(); pageRectified = pageRectified || recognized.rectified();
@@ -248,6 +252,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                         rectifiedPage = recognized.image(); editRectified = true;
                         rectifiedEditAngle = 0; rectifiedEditCrop = new android.graphics.RectF(0, 0, 1, 1);
                     }
+                    processingSeconds = elapsed;
                     allLines = recognized.lines(); rebuildLines(false);
                     status = lines.isEmpty() ? getApplication().getString(R.string.empty_result) : "";
                     busy = false; changed(); save();
@@ -371,6 +376,7 @@ public final class DocumentViewModel extends AndroidViewModel {
     }
 
     public java.util.concurrent.Future<?> closePage() {
+        processingSeconds = -1;
         cancel();
         language = OcrLanguage.from(getApplication().getSharedPreferences("extraction", 0).getString("language", "ja"));
         page = null; sourcePage = null; pageRectified = false; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false; changed();
@@ -383,7 +389,7 @@ public final class DocumentViewModel extends AndroidViewModel {
         try {
             JSONArray array = new JSONArray();
             for (OcrLine line : allLines) array.put(new JSONArray().put(line.left()).put(line.top()).put(line.right()).put(line.bottom()).put(line.text()).put(line.kind().name()).put(line.forceHorizontal()));
-            JSONObject state = new JSONObject().put("language", language.code).put("lines", array).put("text", text).put("textMode", textMode)
+            JSONObject state = new JSONObject().put("processingSeconds", processingSeconds).put("language", language.code).put("lines", array).put("text", text).put("textMode", textMode)
                     .put("selectionStart", selectionStart).put("selectionEnd", selectionEnd)
                     .put("paragraphText", true).put("textPanelFraction", textPanelFraction).put("pageRectified", pageRectified)
                     .put("editRectified", editRectified).put("rectifiedEditAngle", rectifiedEditAngle)

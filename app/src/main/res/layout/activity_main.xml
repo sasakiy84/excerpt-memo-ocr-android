@@ -28,25 +28,14 @@
                     android:layout_width="76dp" android:layout_height="76dp" android:minWidth="0dp" android:minHeight="0dp"
                     android:padding="22dp"
 
-                    android:contentDescription="@string/capture" android:background="@drawable/button_primary" android:src="@drawable/ic_camera" android:tint="@color/excerpt_on_primary" android:scaleType="centerInside" />
+                    android:contentDescription="@string/capture" android:background="@drawable/button_shutter" android:src="@drawable/ic_camera" android:tint="@color/excerpt_on_primary" android:scaleType="centerInside" />
                 <Space android:layout_width="24dp" android:layout_height="1dp" />
                 <Space android:layout_width="56dp" android:layout_height="1dp" />
             </LinearLayout>
         </LinearLayout>
         <LinearLayout android:id="@+id/document_panel" android:layout_width="match_parent"
             android:layout_height="match_parent" android:orientation="vertical" android:visibility="gone">
-            <RadioGroup android:id="@+id/mode_toggle"
-                android:layout_width="240dp" android:layout_height="56dp" android:layout_gravity="center_horizontal"
-                android:layout_marginTop="4dp" android:layout_marginBottom="12dp" android:padding="4dp"
-                android:background="@drawable/mode_switch_background"
-                android:orientation="horizontal" android:checkedButton="@id/page_mode">
-                <RadioButton android:id="@+id/page_mode"
-                    style="@style/Widget.Excerpt.ModeButton" android:layout_width="0dp" android:layout_weight="1"
-                    android:layout_height="match_parent" android:text="@string/page" />
-                <RadioButton android:id="@+id/text_mode"
-                    style="@style/Widget.Excerpt.ModeButton" android:layout_width="0dp" android:layout_weight="1"
-                    android:layout_height="match_parent" android:text="@string/text" />
-            </RadioGroup>
+
             <LinearLayout android:id="@+id/document_content" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical">
                 <com.sasakiy84.excerptmemo.PageView android:id="@+id/page_view"
                     android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
@@ -64,7 +53,7 @@
                         android:gravity="top|start" android:paddingHorizontal="14dp" android:paddingBottom="14dp" android:paddingTop="8dp"
                         android:background="@android:color/transparent" android:textColor="@color/excerpt_ink"
                         android:textColorHint="@color/excerpt_muted" android:lineSpacingExtra="4dp"
-                        android:inputType="textMultiLine|textCapSentences" android:textSize="17sp"
+                        android:inputType="textMultiLine|textCapSentences" android:textSize="14sp"
                         android:scrollbars="vertical" android:importantForAutofill="no" android:hint="@string/result_text" />
                 </com.sasakiy84.excerptmemo.TextDrawer>
             </LinearLayout>
@@ -76,16 +65,27 @@
                 android:layout_marginHorizontal="20dp" android:layout_marginTop="8dp" android:visibility="gone" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal" android:gravity="center_vertical"
-                android:paddingHorizontal="16dp" android:paddingTop="4dp" android:paddingBottom="12dp">
-                <Button android:id="@+id/read_button"
-                    style="@style/Widget.Excerpt.SecondaryButton" android:layout_width="wrap_content" android:layout_height="48dp"
-                    android:paddingHorizontal="14dp" android:text="@string/read" android:textSize="14sp"
-                    android:drawableTint="@color/excerpt_ink" android:drawableStart="@drawable/ic_refresh" android:drawablePadding="6dp" />
-                <Button android:id="@+id/copy_button"
-                    android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp"
-                    android:layout_marginStart="12dp" android:insetTop="0dp" android:insetBottom="0dp"
-                    android:drawableTint="@color/excerpt_on_primary" android:drawableStart="@drawable/ic_copy" android:drawablePadding="6dp"
-                    android:text="@string/copy" android:enabled="false" />
+                android:paddingHorizontal="12dp" android:paddingTop="4dp" android:paddingBottom="8dp">
+            <RadioGroup android:id="@+id/mode_toggle"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp"
+                android:padding="0dp"
+                android:background="@drawable/mode_switch_background"
+                android:orientation="horizontal" android:checkedButton="@id/page_mode">
+                <RadioButton android:id="@+id/page_mode"
+                    style="@style/Widget.Excerpt.ModeButton" android:layout_width="0dp" android:layout_weight="1"
+                    android:layout_height="match_parent" android:text="@string/page" />
+                <RadioButton android:id="@+id/text_mode"
+                    style="@style/Widget.Excerpt.ModeButton" android:layout_width="0dp" android:layout_weight="1"
+                    android:layout_height="match_parent" android:text="@string/text" />
+            </RadioGroup>
+                <ImageButton android:id="@+id/read_button" style="@style/Widget.Excerpt.SecondaryButton"
+                    android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="8dp"
+                    android:padding="12dp" android:scaleType="centerInside" android:src="@drawable/ic_refresh"
+                    android:tint="@color/excerpt_ink" android:contentDescription="@string/reread" android:tooltipText="@string/reread" />
+                <ImageButton android:id="@+id/copy_button" android:layout_width="48dp" android:layout_height="48dp"
+                    android:layout_marginStart="6dp" android:background="@drawable/button_primary" android:padding="12dp"
+                    android:scaleType="centerInside" android:src="@drawable/ic_copy" android:tint="@color/excerpt_on_primary"
+                    android:contentDescription="@string/copy" android:tooltipText="@string/copy" android:enabled="false" />
             </LinearLayout>
         </LinearLayout>
     </FrameLayout>

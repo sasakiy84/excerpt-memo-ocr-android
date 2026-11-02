@@ -49,10 +49,11 @@ public final class MainActivity extends FragmentActivity {
     private EditText resultText;
     private CameraPreview preview;
     private Toolbar toolbar;
+    private int pageTextSize = 14;
     private ProcessCameraProvider cameraProvider;
     private ImageCapture imageCapture;
     private boolean cameraStarting, capturing, updatingText;
-    private static final int MENU_ALL = 1, MENU_ROTATE = 2, MENU_LICENSES = 3, MENU_FILTERS = 4, MENU_LANGUAGE = 5;
+    private static final int MENU_ALL = 1, MENU_ROTATE = 2, MENU_LICENSES = 3, MENU_FILTERS = 4, MENU_LANGUAGE = 5, MENU_SETTINGS = 6;
     private OnBackPressedCallback back;
     private final ActivityResultLauncher<String> permission = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(), granted -> {
@@ -73,6 +74,7 @@ public final class MainActivity extends FragmentActivity {
         super.onCreate(state);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+        pageTextSize = Math.max(12, Math.min(24, getSharedPreferences("display", MODE_PRIVATE).getInt("pageTextSize", 14)));
         View root = findViewById(R.id.root);
         ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
             Insets safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout() | WindowInsetsCompat.Type.ime());
@@ -83,8 +85,9 @@ public final class MainActivity extends FragmentActivity {
         toolbar = findViewById(R.id.toolbar);
         toolbar.getMenu().add(Menu.NONE, MENU_LANGUAGE, Menu.NONE, R.string.language_japanese).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         toolbar.getMenu().add(Menu.NONE, MENU_ALL, Menu.NONE, R.string.all).setIcon(R.drawable.ic_select_all).setIconTintList(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.excerpt_ink))).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
-        toolbar.getMenu().add(Menu.NONE, MENU_ROTATE, Menu.NONE, R.string.edit_image).setIcon(R.drawable.ic_edit_image).setIconTintList(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.excerpt_ink))).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        toolbar.getMenu().add(Menu.NONE, MENU_ROTATE, Menu.NONE, R.string.edit_image).setIcon(R.drawable.ic_edit_image).setIconTintList(android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.excerpt_ink))).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         toolbar.getMenu().add(Menu.NONE, MENU_FILTERS, Menu.NONE, R.string.extraction_options);
+        toolbar.getMenu().add(Menu.NONE, MENU_SETTINGS, Menu.NONE, R.string.settings);
         toolbar.getMenu().add(Menu.NONE, MENU_LICENSES, Menu.NONE, R.string.licenses);
         toolbar.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == MENU_LANGUAGE) document.setLanguage(document.language == OcrLanguage.JAPANESE ? OcrLanguage.ENGLISH : OcrLanguage.JAPANESE);
@@ -92,6 +95,7 @@ public final class MainActivity extends FragmentActivity {
             else if (item.getItemId() == MENU_ROTATE) {
                 if (getSupportFragmentManager().findFragmentByTag("image-edit") == null) new ImageEditDialog().show(getSupportFragmentManager(), "image-edit");
             }
+            else if (item.getItemId() == MENU_SETTINGS) showDisplaySettings();
             else if (item.getItemId() == MENU_FILTERS) showExtractionOptions();
             else showLicenses();
             return true;
@@ -107,7 +111,9 @@ public final class MainActivity extends FragmentActivity {
             @Override public void onTextChanged(CharSequence value, int start, int before, int count) {
                 if (!updatingText) {
                     document.editText(value.toString(), start, before, count);
-                    findViewById(R.id.copy_button).setEnabled(!document.busy && !value.toString().isBlank());
+                    boolean canCopy = !document.busy && !value.toString().isBlank();
+                    findViewById(R.id.copy_button).setEnabled(canCopy);
+                    findViewById(R.id.copy_button).setAlpha(canCopy ? 1f : .4f);
                 }
             }
             @Override public void afterTextChanged(Editable value) {}
@@ -170,23 +176,31 @@ public final class MainActivity extends FragmentActivity {
             drawer.setVisibility(hasText || document.textMode ? View.VISIBLE : View.GONE);
             drawer.bind(document.textPanelFraction, document.textMode);
             resultText.setEnabled(!document.busy);
+            resultText.setTextSize(document.textMode ? 17 : pageTextSize);
             if (!resultText.getText().toString().equals(document.text)) {
                 updatingText = true;
                 resultText.setText(document.text);
                 updatingText = false;
             }
             RadioGroup modes = findViewById(R.id.mode_toggle);
-            modes.setVisibility(hasText ? View.VISIBLE : View.GONE);
+            modes.setVisibility(hasText ? View.VISIBLE : View.INVISIBLE);
             int modeId = document.textMode ? R.id.text_mode : R.id.page_mode;
             if (modes.getCheckedRadioButtonId() != modeId) modes.check(modeId);
             TextView status = findViewById(R.id.status);
-            status.setText(document.status);
-            status.setVisibility(document.status.isEmpty() ? View.GONE : View.VISIBLE);
+            String message = document.status;
+            if (!document.busy && document.processingSeconds >= 0) {
+                String elapsed = getString(R.string.processing_seconds, document.processingSeconds);
+                message = message.isEmpty() ? elapsed : message + " · " + elapsed;
+            }
+            status.setText(message);
+            status.setVisibility(message.isEmpty() ? View.GONE : View.VISIBLE);
             findViewById(R.id.progress).setVisibility(document.busy ? View.VISIBLE : View.GONE);
-            Button readButton = findViewById(R.id.read_button);
-            readButton.setText(document.busy ? R.string.cancel : hasText ? R.string.reread : R.string.read);
-            readButton.setCompoundDrawablesRelativeWithIntrinsicBounds(document.busy ? R.drawable.ic_close : R.drawable.ic_refresh, 0, 0, 0);
+            ImageButton readButton = findViewById(R.id.read_button);
+            readButton.setImageResource(document.busy ? R.drawable.ic_close : R.drawable.ic_refresh);
+            String readAction = getString(document.busy ? R.string.cancel : hasText ? R.string.reread : R.string.read);
+            readButton.setContentDescription(readAction); readButton.setTooltipText(readAction);
             findViewById(R.id.copy_button).setEnabled(!document.busy && !document.text.isBlank());
+            findViewById(R.id.copy_button).setAlpha(!document.busy && !document.text.isBlank() ? 1f : .4f);
         } else {
             boolean granted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
             findViewById(R.id.permission_button).setVisibility(granted ? View.GONE : View.VISIBLE);
@@ -197,6 +211,30 @@ public final class MainActivity extends FragmentActivity {
                 document.status = "";
             }
         }
+    }
+
+    private void showDisplaySettings() {
+        LinearLayout content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL);
+        int padding = Math.round(24 * getResources().getDisplayMetrics().density);
+        content.setPadding(padding, padding / 2, padding, padding / 2);
+        TextView label = new TextView(this); label.setTextSize(16);
+        label.setText(getString(R.string.page_text_size, pageTextSize));
+        content.addView(label);
+        SeekBar size = new SeekBar(this); size.setId(R.id.page_text_size);
+        size.setMin(12); size.setMax(24); size.setProgress(pageTextSize);
+        size.setContentDescription(getString(R.string.page_text_size, pageTextSize));
+        content.addView(size, new LinearLayout.LayoutParams(-1, Math.round(56 * getResources().getDisplayMetrics().density)));
+        size.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar view, int value, boolean user) {
+                pageTextSize = value;
+                getSharedPreferences("display", MODE_PRIVATE).edit().putInt("pageTextSize", value).apply();
+                label.setText(getString(R.string.page_text_size, value));
+                size.setContentDescription(getString(R.string.page_text_size, value)); render();
+            }
+            @Override public void onStartTrackingTouch(SeekBar view) {}
+            @Override public void onStopTrackingTouch(SeekBar view) {}
+        });
+        new AlertDialog.Builder(this).setTitle(R.string.settings).setView(content).setPositiveButton(android.R.string.ok, null).show();
     }
 
     private void showExtractionOptions() {

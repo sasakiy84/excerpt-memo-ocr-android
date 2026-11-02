@@ -8,11 +8,20 @@
         <item name="android:windowBackground">@color/excerpt_background</item>
         <item name="android:textColorPrimary">@color/excerpt_ink</item>
         <item name="android:textColorSecondary">@color/excerpt_muted</item>
+        <item name="android:alertDialogTheme">@style/Theme.ExcerptMemo.Dialog</item>
+        <item name="android:dialogTheme">@style/Theme.ExcerptMemo.Dialog</item>
         <item name="android:buttonStyle">@style/Widget.Excerpt.Button</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
         <item name="android:windowLightNavigationBar">@bool/light_system_bars</item>
         <item name="android:windowActionModeOverlay">true</item>
+    </style>
+    <style name="Theme.ExcerptMemo.Dialog" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">@color/excerpt_primary</item>
+        <item name="android:colorBackgroundFloating">@color/excerpt_panel</item>
+        <item name="android:windowBackground">@drawable/dialog_background</item>
+        <item name="android:textColorPrimary">@color/excerpt_ink</item>
+        <item name="android:textColorSecondary">@color/excerpt_muted</item>
     </style>
     <style name="TextAppearance.Excerpt.Toolbar" parent="android:style/TextAppearance.Material.Widget.ActionBar.Title">
         <item name="android:textSize">20sp</item>

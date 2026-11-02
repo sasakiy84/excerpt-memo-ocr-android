@@ -56,6 +56,31 @@ public final class MainActivityHostTest {
         } finally { DocumentExtractionHostTest.close(controller); }
     }
 
+    @Test public void pageTextSizeSettingPersistsAndDoesNotShrinkTextMode() throws Exception {
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        try {
+            MainActivity activity = controller.get();
+            var model = new ViewModelProvider(activity).get(DocumentViewModel.class);
+            DocumentExtractionHostTest.awaitIdle(model);
+            model.page = Bitmap.createBitmap(100, 200, Bitmap.Config.ARGB_8888);
+            model.allLines = List.of(new OcrLine(10, 10, 90, 30, "資料の文字"));
+            model.textMode = false; model.setInclusions(false, false, false);
+            ((Toolbar) activity.findViewById(R.id.toolbar)).getMenu().performIdentifierAction(6, 0);
+            var dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog();
+            ((android.widget.SeekBar) dialog.findViewById(R.id.page_text_size)).setProgress(20);
+            float scaled = activity.getResources().getDisplayMetrics().scaledDensity;
+            assertEquals(20, ((EditText) activity.findViewById(R.id.result_text)).getTextSize() / scaled, .01f);
+            dialog.dismiss();
+            controller.recreate(); activity = controller.get();
+            assertEquals(20, ((EditText) activity.findViewById(R.id.result_text)).getTextSize() / scaled, .01f);
+            ((android.widget.RadioGroup) activity.findViewById(R.id.mode_toggle)).check(R.id.text_mode);
+            assertEquals(17, ((EditText) activity.findViewById(R.id.result_text)).getTextSize() / scaled, .01f);
+        } finally {
+            controller.get().getSharedPreferences("display", 0).edit().clear().commit();
+            DocumentExtractionHostTest.close(controller);
+        }
+    }
+
     @Test public void firstLaunchShowsCameraWithoutTryingToLoadDrawableZero() throws Exception {
         var controller = Robolectric.buildActivity(MainActivity.class).setup();
         try {

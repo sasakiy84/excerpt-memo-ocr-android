@@ -179,6 +179,9 @@ public final class DocumentExtractionHostTest {
             assertTrue(model.status.isEmpty());
             assertEquals("資料の文字をコピーする\nAndroid 16", model.text);
             assertTrue(statuses.contains("NDLOCR-Lite を実行中、1/2"));
+            assertTrue(model.processingSeconds > 0);
+            assertEquals(model.getApplication().getString(R.string.processing_seconds, model.processingSeconds),
+                    ((android.widget.TextView) controller.get().findViewById(R.id.status)).getText().toString());
             assertEquals(0, model.selectionStart);
             assertEquals(model.text.length(), model.selectionEnd);
         } finally { close(controller); }

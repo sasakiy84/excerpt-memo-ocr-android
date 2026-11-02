@@ -47,4 +47,6 @@
     <string name="language_japanese">日本語</string>
     <string name="language_english">English</string>
     <string name="recognition_language">認識言語: %1$s</string>
+    <string name="processing_seconds">%1$.1f 秒</string>
+    <string name="page_text_size">ページの文字サイズ　%1$d</string>
 </resources>

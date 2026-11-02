@@ -207,3 +207,11 @@ python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
 python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
   --class-name com.sasakiy84.excerptmemo.PaddleInstrumentedTest#bundledSmallReadsAnEnglishSentenceOnAndroidCpu --expected-tests 1
 ```
+
+## 0.7.0 の結果画面
+
+- ページ／テキスト切り替えをコピー・再読み取りと同じ下部の1行へ移し、2つの操作はアイコンとアクセシビリティ用の名前で表示する。画像編集はツールバーに優先して残す。
+- ページ側の本文は標準14、設定で12〜24に変更できる。設定の保存と画面再作成、テキスト側が17を保つことをホストで確認した。
+- OCR開始から保存を含む処理完了までを単調増加時計で測り、秒数を結果に表示・保存する。既存の保存データには秒数を補わない。
+- ホストテスト65件、debug / release lint、debug / Android テスト / 未署名 release のビルド、モデル・文字表10ファイルの検証が成功した。任意の私有写真テスト3件は通常実行ではスキップした。
+- Android 16 の結果画面で、文字選択・下部の切り替え・コピー・画面再作成・言語切り替えの2テストが成功した。仮想化なしのエミュレーターで77.1秒だった。撮影と英語モデルの実行確認は直前の項目に記録した。
