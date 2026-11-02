@@ -234,6 +234,9 @@ public final class DocumentViewModel extends AndroidViewModel {
                         case NDL_DETECTION -> R.string.ndl_detecting;
                         case NDL_RECOGNITION -> R.string.ndl_recognizing;
                         case PADDLE_DETECTION -> R.string.paddle_detecting;
+                        case PADDLE_TINY_DETECTION -> R.string.paddle_tiny_detecting;
+                        case PADDLE_MEDIUM_DETECTION -> R.string.paddle_medium_detecting;
+                        case CONTRAST -> R.string.improving_contrast;
                         case PADDLE_RECOGNITION -> R.string.paddle_recognizing;
                         case UVDOC -> R.string.uvdoc_running;
                     };

@@ -18,8 +18,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.CancellationException;
 import ai.onnxruntime.*;
 
-/** PP-OCRv6 small: DB quadrilaterals and aspect-preserving CTC recognition. */
+/** PP-OCRv6 DB quadrilaterals and aspect-preserving CTC recognition. */
 final class PaddleOcr {
+    static final String TINY_DETECTOR = "ppocrv6-tiny-det.onnx", MEDIUM_DETECTOR = "ppocrv6-medium-det.onnx";
     static final String MEDIUM = "ppocrv6-medium-rec.onnx";
     static final String DETECTOR = "ppocrv6-small-det.onnx", RECOGNIZER = "ppocrv6-small-rec.onnx";
     interface Sessions { OrtSession open(String name) throws Exception; }
@@ -48,6 +49,10 @@ final class PaddleOcr {
     String recognize(Bitmap image, AtomicBoolean cancelled) throws Exception { return recognize(image, cancelled, false); }
 
     String recognize(Bitmap image, AtomicBoolean cancelled, boolean horizontalOnly) throws Exception {
+        return recognize(image, cancelled, horizontalOnly, policy);
+    }
+
+    private String recognize(Bitmap image, AtomicBoolean cancelled, boolean horizontalOnly, Policy chosenPolicy) throws Exception {
         Bitmap horizontal = image;
         if (!horizontalOnly && image.getHeight() >= image.getWidth() * 1.5f) {
             Matrix rotation = new Matrix(); rotation.postRotate(-90);
@@ -61,8 +66,8 @@ final class PaddleOcr {
             float[] values = new float[3 * 48 * width];
             for (int c = 0; c < 3; c++) for (int y = 0; y < 48; y++) for (int x = 0; x < contentWidth; x++)
                 values[c * 48 * width + y * width + x] = ((pixels[y * contentWidth + x] >> (c * 8)) & 255) / 127.5f - 1;
-            Recognition first = recognizeTensor(values, width, policy == Policy.MEDIUM ? MEDIUM : RECOGNIZER);
-            if (policy == Policy.SELECTIVE && !first.text().isBlank() && first.confidence() < .95f) {
+            Recognition first = recognizeTensor(values, width, chosenPolicy == Policy.MEDIUM ? MEDIUM : RECOGNIZER);
+            if (chosenPolicy == Policy.SELECTIVE && !first.text().isBlank() && first.confidence() < .95f) {
                 if (cancelled.get() || Thread.currentThread().isInterrupted()) throw new CancellationException();
                 return recognizeTensor(values, width, MEDIUM).text();
             }
@@ -112,9 +117,16 @@ final class PaddleOcr {
     }
 
     List<OcrLine> read(Bitmap image, AtomicBoolean cancelled, OcrEngine.Progress progress, boolean horizontalOnly) throws Exception {
+        return read(image, cancelled, progress, horizontalOnly, DETECTOR, policy);
+    }
+
+    List<OcrLine> read(Bitmap image, AtomicBoolean cancelled, OcrEngine.Progress progress,
+                       boolean horizontalOnly, String detectorModel, Policy chosenPolicy) throws Exception {
         ensureOpenCv();
-        progress.update(OcrEngine.Stage.PADDLE_DETECTION, 0, 1);
-        List<Point[]> boxes = detect(image);
+        OcrEngine.Stage detectionStage = detectorModel.equals(TINY_DETECTOR) ? OcrEngine.Stage.PADDLE_TINY_DETECTION
+                : detectorModel.equals(MEDIUM_DETECTOR) ? OcrEngine.Stage.PADDLE_MEDIUM_DETECTION : OcrEngine.Stage.PADDLE_DETECTION;
+        progress.update(detectionStage, 0, 1);
+        List<Point[]> boxes = detect(image, detectorModel);
         List<OcrLine> lines = new ArrayList<>();
         Mat source = toMat(image);
         try {
@@ -130,7 +142,7 @@ final class PaddleOcr {
                     Imgproc.warpPerspective(source, crop, matrix, new Size(width, height), Imgproc.INTER_CUBIC, Core.BORDER_REPLICATE);
                     Bitmap bitmap = toBitmap(crop);
                     String text;
-                    try { text = recognize(bitmap, cancelled, horizontalOnly); } finally { bitmap.recycle(); }
+                    try { text = recognize(bitmap, cancelled, horizontalOnly, chosenPolicy); } finally { bitmap.recycle(); }
                     if (!text.isBlank()) {
                         float left = Float.POSITIVE_INFINITY, top = left, right = 0, bottom = 0;
                         for (Point p : points) { left = Math.min(left, (float)p.x); top = Math.min(top, (float)p.y); right = Math.max(right, (float)p.x); bottom = Math.max(bottom, (float)p.y); }
@@ -143,7 +155,7 @@ final class PaddleOcr {
         return ReadingOrder.sort(lines);
     }
 
-    private List<Point[]> detect(Bitmap image) throws Exception {
+    private List<Point[]> detect(Bitmap image, String detectorModel) throws Exception {
         int h = image.getHeight(), w = image.getWidth();
         double ratio = Math.min(1, 1024.0 / Math.max(h, w));
         int rh = Math.max(32, (int) Math.rint(h * ratio / 32) * 32), rw = Math.max(32, (int) Math.rint(w * ratio / 32) * 32);
@@ -155,7 +167,7 @@ final class PaddleOcr {
             float[] mean = {.485f, .456f, .406f}, std = {.229f, .224f, .225f};
             for (int c = 0; c < 3; c++) for (int i = 0; i < rh * rw; i++) values[c * rh * rw + i] = ((bytes[i * 3 + c] & 255) / 255f - mean[c]) / std[c];
         } finally { source.release(); resized.release(); }
-        OrtSession session = sessions.open(DETECTOR);
+        OrtSession session = sessions.open(detectorModel);
         float[] probabilities;
         int ph, pw;
         try (OnnxTensor input = OnnxTensor.createTensor(environment, FloatBuffer.wrap(values), new long[]{1, 3, rh, rw});
@@ -187,6 +199,24 @@ final class PaddleOcr {
             }
         } finally { map.release(); binary.release(); hierarchy.release(); for (MatOfPoint contour : contours) contour.release(); }
         return boxes;
+    }
+
+    static Bitmap improveContrast(Bitmap image) {
+        ensureOpenCv();
+        Mat source = toMat(image), lab = new Mat(), result = new Mat();
+        List<Mat> channels = new ArrayList<>();
+        var clahe = Imgproc.createCLAHE(2, new Size(8, 8));
+        try {
+            Imgproc.cvtColor(source, lab, Imgproc.COLOR_BGR2Lab);
+            Core.split(lab, channels);
+            clahe.apply(channels.get(0), channels.get(0));
+            Core.merge(channels, lab);
+            Imgproc.cvtColor(lab, result, Imgproc.COLOR_Lab2BGR);
+            return toBitmap(result);
+        } finally {
+            for (Mat channel : channels) channel.release();
+            source.release(); lab.release(); result.release(); clahe.collectGarbage(); clahe.clear();
+        }
     }
 
     private static double meanScore(float[] probabilities, int h, int w, Point[] points) {

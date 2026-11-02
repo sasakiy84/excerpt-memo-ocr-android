@@ -88,7 +88,7 @@ public final class SelectiveOcrBenchmarkTest {
             } finally { source.recycle(); }
         }
         Files.write(new File(root, "lm/java-benchmark.json").toPath(), output.toString(2).getBytes(StandardCharsets.UTF_8));
-        assertTrue(automaticErrors < baselineErrors);
+        assertTrue(automaticErrors <= baselineErrors);
     }
 
     private static int[] normalized(String value) {

@@ -32,7 +32,7 @@ import ai.onnxruntime.TensorInfo;
 
 /** Native ONNX inference; preprocessing and cascade follow NDLOCR-Lite 1.3.0. */
 public final class OcrEngine implements AutoCloseable {
-    public enum Stage { NDL_DETECTION, NDL_RECOGNITION, PADDLE_DETECTION, PADDLE_RECOGNITION, UVDOC }
+    public enum Stage { NDL_DETECTION, NDL_RECOGNITION, PADDLE_DETECTION, PADDLE_TINY_DETECTION, PADDLE_MEDIUM_DETECTION, CONTRAST, PADDLE_RECOGNITION, UVDOC }
     public interface Progress { void update(Stage stage, int done, int total); }
     private final Context context;
     private final OrtEnvironment environment = OrtEnvironment.getEnvironment();
@@ -73,7 +73,7 @@ public final class OcrEngine implements AutoCloseable {
             Files.move(temporary.toPath(), model.toPath(), StandardCopyOption.REPLACE_EXISTING);
         }
         try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
-            options.setIntraOpNumThreads((name.equals(DETECTOR) || name.equals(PaddleOcr.DETECTOR)) ? Math.min(4, Runtime.getRuntime().availableProcessors()) : 2);
+            options.setIntraOpNumThreads((name.equals(DETECTOR) || name.equals(PaddleOcr.DETECTOR) || name.equals(PaddleOcr.TINY_DETECTOR) || name.equals(PaddleOcr.MEDIUM_DETECTOR)) ? Math.min(4, Runtime.getRuntime().availableProcessors()) : 2);
             options.setInterOpNumThreads(1);
             OrtSession loaded = environment.createSession(model.toString(), options);
             sessions.put(name, loaded);
@@ -125,30 +125,21 @@ public final class OcrEngine implements AutoCloseable {
         if (language == OcrLanguage.ENGLISH && route == OcrRouting.Route.NDL) route = OcrRouting.Route.PADDLE;
         checkCancelled(cancelled);
         if (route == OcrRouting.Route.PADDLE) {
-            List<OcrLine> recognized = paddle().read(page, cancelled, progress, language == OcrLanguage.ENGLISH);
-            List<OcrLine> classified = new ArrayList<>();
-            for (OcrLine line : recognized) {
-                OcrLine.Kind kind = OcrLine.Kind.TEXT;
-                float best = .5f;
-                for (OcrLine detected : geometry) {
-                    if (detected.kind() == OcrLine.Kind.TEXT) continue;
-                    float ratio = OcrRouting.categoryOverlap(line, detected);
-                    if (ratio > best) { best = ratio; kind = detected.kind(); }
+            Bitmap contrast = null;
+            try {
+                boolean japanese = language == OcrLanguage.JAPANESE;
+                if (japanese) {
+                    progress.update(Stage.CONTRAST, 0, 1);
+                    contrast = PaddleOcr.improveContrast(page);
+                    checkCancelled(cancelled);
                 }
-                classified.add(new OcrLine(line.left(), line.top(), line.right(), line.bottom(), line.text(), kind, language == OcrLanguage.ENGLISH));
-            }
-            // Keep detected folios even when the general-purpose detector omits tiny text.
-            for (Detection d : layout) if (d.kind == OcrLine.Kind.PAGE_NUMBER && classified.stream().noneMatch(l -> l.kind() == d.kind && l.intersects(d.box.left, d.box.top, d.box.right, d.box.bottom))) {
-                checkCancelled(cancelled);
-                progress.update(Stage.NDL_RECOGNITION, 0, 1);
-                Bitmap crop = Bitmap.createBitmap(page, d.box.left, d.box.top, d.box.width(), d.box.height());
-                String text;
-                try { text = recognize(crop, d.tier, cancelled); } finally { if (crop != page) crop.recycle(); }
-                if (!text.isBlank()) classified.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind, language == OcrLanguage.ENGLISH));
-                progress.update(Stage.NDL_RECOGNITION, 1, 1);
-            }
-            return new PageResult(page, ReadingOrder.sort(classified), false, language == OcrLanguage.ENGLISH ? "paddle-english" : "paddle-long-vertical");
+                List<OcrLine> lines = readPaddle(japanese ? contrast : page, layout, cancelled, progress, language,
+                        japanese ? PaddleOcr.TINY_DETECTOR : PaddleOcr.DETECTOR,
+                        japanese ? japanesePolicy() : recognitionPolicy);
+                return new PageResult(page, lines, false, japanese ? "clahe-paddle-tiny-det" : "paddle-english");
+            } finally { if (contrast != null) contrast.recycle(); }
         }
+
         Bitmap target = page;
         if (route == OcrRouting.Route.FLATTEN_PADDLE && !alreadyRectified) {
             progress.update(Stage.UVDOC, 0, 1);
@@ -161,6 +152,12 @@ public final class OcrEngine implements AutoCloseable {
             } catch (Exception | OutOfMemoryError exception) { target.recycle(); throw exception; }
         }
         try {
+            if (route == OcrRouting.Route.FLATTEN_PADDLE && language == OcrLanguage.JAPANESE) {
+                List<OcrLine> lines = readPaddle(target, layout, cancelled, progress, language,
+                        PaddleOcr.MEDIUM_DETECTOR, japanesePolicy());
+                return new PageResult(target, lines, target != page,
+                        alreadyRectified ? "paddle-medium-det" : "uvdoc-paddle-medium-det");
+            }
             List<OcrLine> lines = new ArrayList<>(); int done = 0;
             Stage stage = route == OcrRouting.Route.FLATTEN_PADDLE ? Stage.PADDLE_RECOGNITION : Stage.NDL_RECOGNITION;
             progress.update(stage, 0, layout.size());
@@ -178,6 +175,41 @@ public final class OcrEngine implements AutoCloseable {
                     route != OcrRouting.Route.FLATTEN_PADDLE ? "ndl"
                     : alreadyRectified ? "ndl-layout-paddle" : "uvdoc-ndl-layout-paddle");
         } catch (Exception | OutOfMemoryError exception) { if (target != page) target.recycle(); throw exception; }
+    }
+
+    private PaddleOcr.Policy japanesePolicy() {
+        // The larger detector fixes line boundaries; repeating recognition did not
+        // improve the benchmark's excerpts. MEDIUM remains an internal comparison.
+        return recognitionPolicy == PaddleOcr.Policy.MEDIUM ? PaddleOcr.Policy.MEDIUM : PaddleOcr.Policy.SMALL;
+    }
+
+    private List<OcrLine> readPaddle(Bitmap page, List<Detection> layout, AtomicBoolean cancelled,
+                                     Progress progress, OcrLanguage language, String detector, PaddleOcr.Policy policy) throws Exception {
+        List<OcrLine> recognized = paddle().read(page, cancelled, progress, language == OcrLanguage.ENGLISH, detector, policy);
+        List<OcrLine> geometry = layout.stream().map(d -> new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, "", d.kind)).toList();
+        List<OcrLine> classified = new ArrayList<>();
+        for (OcrLine line : recognized) {
+            OcrLine.Kind kind = OcrLine.Kind.TEXT;
+            float best = .5f;
+            for (OcrLine detected : geometry) {
+                if (detected.kind() == OcrLine.Kind.TEXT) continue;
+                float ratio = OcrRouting.categoryOverlap(line, detected);
+                if (ratio > best) { best = ratio; kind = detected.kind(); }
+            }
+            classified.add(new OcrLine(line.left(), line.top(), line.right(), line.bottom(), line.text(), kind, language == OcrLanguage.ENGLISH));
+        }
+        // Keep detected folios even when the general-purpose detector omits tiny text.
+        for (Detection d : layout) if (d.kind == OcrLine.Kind.PAGE_NUMBER && classified.stream().noneMatch(l -> l.kind() == d.kind && l.intersects(d.box.left, d.box.top, d.box.right, d.box.bottom))) {
+            checkCancelled(cancelled);
+            progress.update(Stage.NDL_RECOGNITION, 0, 1);
+            Bitmap crop = Bitmap.createBitmap(page, d.box.left, d.box.top, d.box.width(), d.box.height());
+            String text;
+            try { text = recognize(crop, d.tier, cancelled); } finally { if (crop != page) crop.recycle(); }
+            if (!text.isBlank()) classified.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind, language == OcrLanguage.ENGLISH));
+            progress.update(Stage.NDL_RECOGNITION, 1, 1);
+        }
+        checkCancelled(cancelled);
+        return ReadingOrder.sort(classified);
     }
 
     private PaddleOcr paddle() throws Exception {

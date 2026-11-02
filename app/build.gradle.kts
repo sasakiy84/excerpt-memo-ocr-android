@@ -1,6 +1,6 @@
 plugins { id("com.android.application") }
 
-val releaseVersion = providers.gradleProperty("releaseVersion").orElse("0.7.1").get()
+val releaseVersion = providers.gradleProperty("releaseVersion").orElse("0.8.0").get()
 require(Regex("(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,2})").matches(releaseVersion))
 val (major, minor, patch) = releaseVersion.split('.').map(String::toInt)
 

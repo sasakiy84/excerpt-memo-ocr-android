@@ -18,6 +18,26 @@ public final class PaddleInstrumentedTest {
         return source;
     }
 
+    @Test(timeout = 600000) public void japaneseDetectorsExecuteOnAndroidCpu() throws Exception {
+        var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        try (OcrEngine engine = new OcrEngine(context);
+             var input = ai.onnxruntime.OnnxTensor.createTensor(ai.onnxruntime.OrtEnvironment.getEnvironment(), java.nio.FloatBuffer.wrap(new float[3 * 32 * 32]), new long[]{1, 3, 32, 32})) {
+            for (String model : new String[]{PaddleOcr.TINY_DETECTOR, PaddleOcr.MEDIUM_DETECTOR}) {
+                var session = engine.session(model);
+                try (var output = session.run(java.util.Map.of(session.getInputNames().iterator().next(), input))) {
+                    var tensor = (ai.onnxruntime.OnnxTensor)output.get(0);
+                    assertArrayEquals(new long[]{1, 1, 32, 32}, tensor.getInfo().getShape());
+                    var values = tensor.getFloatBuffer();
+                    while (values.hasRemaining()) { float value = values.get(); assertTrue(Float.isFinite(value) && value >= 0 && value <= 1); }
+                }
+            }
+            Bitmap image = Bitmap.createBitmap(64, 96, Bitmap.Config.ARGB_8888);
+            Bitmap contrast = PaddleOcr.improveContrast(image);
+            try { assertEquals(64, contrast.getWidth()); assertEquals(96, contrast.getHeight()); }
+            finally { contrast.recycle(); image.recycle(); }
+        }
+    }
+
     @Test(timeout = 600000) public void bundledSmallReadsAnEnglishSentenceOnAndroidCpu() throws Exception {
         var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Bitmap image = Bitmap.createBitmap(600, 200, Bitmap.Config.ARGB_8888);

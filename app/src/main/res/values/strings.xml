@@ -24,6 +24,9 @@
     <string name="loading_model">モデルを準備中…</string>
     <string name="ndl_detecting">NDLOCR-Lite で行を検出中</string>
     <string name="ndl_recognizing">NDLOCR-Lite を実行中</string>
+    <string name="paddle_tiny_detecting">PP-OCRv6 tiny で行を検出中</string>
+    <string name="paddle_medium_detecting">PP-OCRv6 medium で行を検出中</string>
+    <string name="improving_contrast">コントラストを補正中</string>
     <string name="paddle_detecting">PP-OCRv6 small で行を検出中</string>
     <string name="paddle_recognizing">PP-OCRv6 を実行中</string>
     <string name="uvdoc_running">UVDoc で補正中</string>

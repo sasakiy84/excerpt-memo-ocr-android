@@ -6,6 +6,7 @@ import android.view.MotionEvent;
 import android.widget.FrameLayout;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
+import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
@@ -16,6 +17,7 @@ import org.robolectric.annotation.GraphicsMode;
 @Config(sdk = 36, qualifiers = "mdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public final class ImageEditsTest {
+    @BeforeClass public static void loadHostCpuOpenCv() { HostOpenCv.load(); }
     @Test public void quarterTurnAndCropUseThePreviewCoordinateSpace() {
         Bitmap input = Bitmap.createBitmap(200, 300, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(input); canvas.drawColor(Color.WHITE);

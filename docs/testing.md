@@ -8,7 +8,7 @@ python3 scripts/verify-models.py
 python3 scripts/gradle-cloud.py --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
 ```
 
-ホスト側は標準 58 件と、外部の提供写真を使う任意の比較・編集確認 3 件です。読み順・復号、実モデル OCR、選択・コピー、引用・フィルタ、画像編集、段落整形、文章ドロワー、処理経路の判定、PP-OCR と補正済みページの再読取りを確認します。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。画面画像は `app/build/reports/ui/` に出力します。
+ホスト側は標準 66 件と、外部の提供写真を使う任意の比較・編集確認 3 件です。読み順・復号、実モデル OCR、選択・コピー、引用・フィルタ、画像編集、段落整形、文章ドロワー、処理経路の判定、PP-OCR と補正済みページの再読取りを確認します。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。画面画像は `app/build/reports/ui/` に出力します。
 
 提供写真を使う任意テストの実行方法と、ランタイム・画像補間の違いは [ocr-comparison.md](ocr-comparison.md) を参照してください。写真を指定しない通常実行では、この 1 件はスキップされます。
 
@@ -36,13 +36,13 @@ incremental install を使う場合、配信元 APK は `ANDROID_USER_HOME/test-
 
 ```sh
 python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
-  --class-name com.sasakiy84.excerptmemo.PaddleInstrumentedTest --expected-tests 2
+  --class-name com.sasakiy84.excerptmemo.PaddleInstrumentedTest#japaneseDetectorsExecuteOnAndroidCpu --expected-tests 1
 python3 scripts/run-device-tests.py --reuse-app --no-ui-automation \
   --class-name com.sasakiy84.excerptmemo.DocumentUiTest#selectCharactersSwitchToTextCopyAndRestoreAfterRotation \
   --expected-tests 1
 ```
 
-新モデルの端末テストは 480 × 280 px の生成画像を使う互換性確認で、速度比較には使用しません。PP-OCR と UVDoc は独立したテストにして、それぞれの結果とタイムアウトを記録します。
+端末では生成画像や小さなテンソルを使って互換性を確認し、速度比較には使用しません。PP-OCR と UVDoc は独立したテストにして、それぞれの結果とタイムアウトを記録します。
 UVDoc は仮想化なしのエミュレーターでは 20 分枠でも完了しなかったため、機能確認の上限を 60 分にしています。実行時間の評価は提供写真を使うホスト側の比較テストで行います。
 
 端末テストでは同梱モデルの日本語・英語・縦書き認識、空白画像、切り出しと座標、文字のタップ・範囲のドラッグ、テキスト画面、コピー、画面再作成、カメラ撮影と戻る操作を確認します。画像の認識を含む通しのテストもあります。
@@ -221,3 +221,17 @@ python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
 0.7.0の公開ビルドでは、既存キャッシュの解決情報に隠れていた親POMとJUnit BOMのmodule metadata、計3件の未登録ハッシュを strict 検証が拒否した。Maven Central の公式ファイルと公開チェックサムを照合して SHA-256 を追加し、既存の登録値は変更していない。
 
 依存キャッシュを削除した別の Gradle ユーザーディレクトリで、strict モードの `assembleRelease` が成功した。通常環境でもホスト65件、debug / release lint、debug / Android テストのビルド、0.7.1の後段署名とAPK検査が成功した。アプリの処理・画面は0.7.0の確認対象から変更していない。
+
+## 0.8.0 の日本語構成
+
+- 標準ホスト66件成功、私有写真を使う任意3件は通常実行ではスキップ。debug / release lint、debug / Androidテスト / 未署名releaseのビルドが成功した。
+- 書籍用のCLAHE＋tiny検出、補正済みページ用のmedium検出を実モデルで確認。英語の3文完全一致、文字選択・コピー・引用・画像編集・補正画像への再編集も標準テストで確認した。画像編集テストもホストOpenCVの初期化を行う。
+- 私有写真の任意ベンチマークを別途実行し、各画像・各認識方針で初回の後の3回を計測した。標準経路の抜粋誤りは19/1302→12/1302。書籍のfolio 32を保持し、本文に混入しないことも確認した。数値と条件は [日本語OCR比較](japanese-800mb-comparison.md) に記録した。
+- Android 16 AOSP x86_64の新検出器テスト1件が31.087秒で成功。tiny / medium検出器へ32×32テンソルを渡し、出力形状と有限な0〜1の値を確認した。OpenCVのCLAHEもAndroid上で実行した。実写ページ全体のAndroid速度を測ったテストではない。
+- ローカルの未署名APKをGradle終了後に署名し、既存と同じ証明書、Android 16以降、arm64、モデル・文字表12ファイル、16KB整列を確認した。ローカル署名APKは420,795,613バイト、ONNX10個の合計は360,203,342バイト。
+- 物理端末の性能・電力と、UVDocのAndroid全工程の確認範囲は前版から変わらない。採用しなかったYomitokuの派生ONNXはホスト実験の結果であり、Android互換性の確認を済ませた配布モデルとは扱わない。
+
+```sh
+python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
+  --class-name com.sasakiy84.excerptmemo.PaddleInstrumentedTest#japaneseDetectorsExecuteOnAndroidCpu --expected-tests 1
+```

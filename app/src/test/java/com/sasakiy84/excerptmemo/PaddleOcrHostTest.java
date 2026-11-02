@@ -36,6 +36,27 @@ public final class PaddleOcrHostTest {
         } finally { image.recycle(); }
     }
 
+    @Test public void japaneseDetectorsPreserveHorizontalAndVerticalText() throws Exception {
+        try (OcrEngine engine = new OcrEngine(RuntimeEnvironment.getApplication())) {
+            var paddle = new PaddleOcr(RuntimeEnvironment.getApplication(), engine::session, PaddleOcr.Policy.SMALL);
+            for (String fixture : new String[]{"horizontal", "vertical"}) {
+                try (var input = getClass().getResourceAsStream("/" + fixture + ".png")) {
+                    Bitmap original = BitmapFactory.decodeStream(input);
+                    Bitmap contrast = PaddleOcr.improveContrast(original);
+                    try {
+                        assertNotSame(original, contrast);
+                        assertEquals(original.getWidth(), contrast.getWidth());
+                        assertEquals(original.getHeight(), contrast.getHeight());
+                        String detector = fixture.equals("vertical") ? PaddleOcr.TINY_DETECTOR : PaddleOcr.MEDIUM_DETECTOR;
+                        String expected = fixture.equals("vertical") ? "資料の文字を読む" : "資料の文字をコピーする\nAndroid 16";
+                        assertEquals(expected, ReadingOrder.text(paddle.read(contrast, new AtomicBoolean(), (stage, done, total) -> {}, false, detector, PaddleOcr.Policy.SMALL)));
+                        assertFalse(original.isRecycled());
+                    } finally { contrast.recycle(); original.recycle(); }
+                }
+            }
+        }
+    }
+
     @Test public void confidenceExcludesBlankAndRepeatedCtcFrames() {
         var result = PaddleOcr.decodeScored(java.nio.FloatBuffer.wrap(new float[]{.99f, .005f, .005f, .1f, .8f, .1f, .05f, .9f, .05f, .8f, .1f, .1f, .2f, .2f, .6f}), 5, 3, new String[]{"", "甲", "乙"});
         assertEquals("甲乙", result.text());
@@ -65,10 +86,11 @@ public final class PaddleOcrHostTest {
             try {
                 var progress = new java.util.ArrayList<String>();
                 var result = engine.readPage(image, true, new AtomicBoolean(), (stage, done, total) -> progress.add(stage + ":" + done + "/" + total));
-                assertEquals(java.util.List.of("NDL_DETECTION:0/1", "PADDLE_RECOGNITION:0/2", "PADDLE_RECOGNITION:1/2", "PADDLE_RECOGNITION:2/2"), progress);
+                assertTrue(progress.contains("PADDLE_MEDIUM_DETECTION:0/1"));
+                assertFalse(progress.stream().anyMatch(stage -> stage.startsWith("UVDOC:")));
                 assertSame(image, result.image());
                 assertFalse(result.rectified());
-                assertEquals("ndl-layout-paddle", result.workflow());
+                assertEquals("paddle-medium-det", result.workflow());
                 assertEquals("資料の文字をコピーする\nAndroid 16", ReadingOrder.text(result.lines()));
             } finally { image.recycle(); }
         }
