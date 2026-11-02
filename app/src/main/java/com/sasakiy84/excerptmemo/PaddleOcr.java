@@ -20,13 +20,19 @@ import ai.onnxruntime.*;
 
 /** PP-OCRv6 small: DB quadrilaterals and aspect-preserving CTC recognition. */
 final class PaddleOcr {
+    static final String MEDIUM = "ppocrv6-medium-rec.onnx";
     static final String DETECTOR = "ppocrv6-small-det.onnx", RECOGNIZER = "ppocrv6-small-rec.onnx";
     interface Sessions { OrtSession open(String name) throws Exception; }
     private final Sessions sessions;
+    enum Policy { SMALL, SELECTIVE, MEDIUM }
+    private final Policy policy;
     private final String[] characters;
     private final OrtEnvironment environment = OrtEnvironment.getEnvironment();
 
-    PaddleOcr(Context context, Sessions sessions) throws Exception {
+    PaddleOcr(Context context, Sessions sessions) throws Exception { this(context, sessions, Policy.SELECTIVE); }
+
+    PaddleOcr(Context context, Sessions sessions, Policy policy) throws Exception {
+        this.policy = policy;
         this.sessions = sessions;
         try (InputStream input = context.getAssets().open("ppocrv6-charset.json")) {
             JSONArray array = new JSONArray(new String(input.readAllBytes(), StandardCharsets.UTF_8));
@@ -37,7 +43,9 @@ final class PaddleOcr {
         }
     }
 
-    String recognize(Bitmap image) throws Exception {
+    String recognize(Bitmap image) throws Exception { return recognize(image, new AtomicBoolean()); }
+
+    String recognize(Bitmap image, AtomicBoolean cancelled) throws Exception {
         Bitmap horizontal = image;
         if (image.getHeight() >= image.getWidth() * 1.5f) {
             Matrix rotation = new Matrix(); rotation.postRotate(-90);
@@ -51,26 +59,38 @@ final class PaddleOcr {
             float[] values = new float[3 * 48 * width];
             for (int c = 0; c < 3; c++) for (int y = 0; y < 48; y++) for (int x = 0; x < contentWidth; x++)
                 values[c * 48 * width + y * width + x] = ((pixels[y * contentWidth + x] >> (c * 8)) & 255) / 127.5f - 1;
-            return recognizeTensor(values, width);
+            Recognition first = recognizeTensor(values, width, policy == Policy.MEDIUM ? MEDIUM : RECOGNIZER);
+            if (policy == Policy.SELECTIVE && !first.text().isBlank() && first.confidence() < .95f) {
+                if (cancelled.get() || Thread.currentThread().isInterrupted()) throw new CancellationException();
+                return recognizeTensor(values, width, MEDIUM).text();
+            }
+            return first.text();
         } finally {
             if (resized != image && resized != horizontal) resized.recycle();
             if (horizontal != image) horizontal.recycle();
         }
     }
 
-    private String recognizeTensor(float[] values, int width) throws Exception {
-        OrtSession session = sessions.open(RECOGNIZER);
+    private Recognition recognizeTensor(float[] values, int width, String model) throws Exception {
+        OrtSession session = sessions.open(model);
         try (OnnxTensor input = OnnxTensor.createTensor(environment, FloatBuffer.wrap(values), new long[]{1, 3, 48, width});
              OrtSession.Result result = session.run(Map.of(session.getInputNames().iterator().next(), input))) {
             OnnxTensor output = (OnnxTensor) result.get(0);
             long[] shape = output.getInfo().getShape();
-            return decode(output.getFloatBuffer(), (int) shape[1], (int) shape[2], characters);
+            return decodeScored(output.getFloatBuffer(), (int) shape[1], (int) shape[2], characters);
         }
     }
 
+    record Recognition(String text, float confidence) {}
+
     static String decode(FloatBuffer scores, int steps, int classes, String[] charset) {
+        return decodeScored(scores, steps, classes, charset).text();
+    }
+
+    static Recognition decodeScored(FloatBuffer scores, int steps, int classes, String[] charset) {
         StringBuilder text = new StringBuilder();
-        int previous = -1;
+        int previous = -1, emitted = 0;
+        float confidence = 0;
         for (int step = 0; step < steps; step++) {
             int best = 0;
             int offset = step * classes;
@@ -79,10 +99,10 @@ final class PaddleOcr {
                 float score = scores.get(offset + c);
                 if (score > bestScore) { best = c; bestScore = score; }
             }
-            if (best != 0 && best != previous && best < charset.length) text.append(charset[best]);
+            if (best != 0 && best != previous && best < charset.length) { text.append(charset[best]); confidence += bestScore; emitted++; }
             previous = best;
         }
-        return text.toString();
+        return new Recognition(text.toString(), emitted == 0 ? 0 : confidence / emitted);
     }
 
     List<OcrLine> read(Bitmap image, AtomicBoolean cancelled, OcrEngine.Progress progress) throws Exception {
@@ -104,7 +124,7 @@ final class PaddleOcr {
                     Imgproc.warpPerspective(source, crop, matrix, new Size(width, height), Imgproc.INTER_CUBIC, Core.BORDER_REPLICATE);
                     Bitmap bitmap = toBitmap(crop);
                     String text;
-                    try { text = recognize(bitmap); } finally { bitmap.recycle(); }
+                    try { text = recognize(bitmap, cancelled); } finally { bitmap.recycle(); }
                     if (!text.isBlank()) {
                         float left = Float.POSITIVE_INFINITY, top = left, right = 0, bottom = 0;
                         for (Point p : points) { left = Math.min(left, (float)p.x); top = Math.min(top, (float)p.y); right = Math.max(right, (float)p.x); bottom = Math.max(bottom, (float)p.y); }

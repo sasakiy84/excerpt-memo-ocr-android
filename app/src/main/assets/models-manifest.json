@@ -34,6 +34,14 @@
       "files": {
         "models/uvdoc.onnx": "54cab30dc2cf347b4f3d6971c833b1c3d84f5ef17280f1f6d15796bff20e63d6"
       }
+    },
+    {
+      "repository": "https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_rec_onnx",
+      "revision": "50c7eacafc52fa7bcf4194e8cd08e46f8558504b",
+      "license": "Apache-2.0",
+      "files": {
+        "models/ppocrv6-medium-rec.onnx": "9c09abf0957f7968c7586464b7397b84ad2387a0497a351af40e9acc71b673ba"
+      }
     }
   ]
 }

@@ -18,6 +18,29 @@ public final class PaddleInstrumentedTest {
         return source;
     }
 
+    @Test(timeout = 600000) public void bundledMediumReadsJapaneseOnAndroidCpu() throws Exception {
+        var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Bitmap full = OcrInstrumentedTest.fixture();
+        Bitmap crop = Bitmap.createBitmap(full, 60, 100, 760, 100);
+        try (OcrEngine engine = new OcrEngine(context)) {
+            var recognizer = new PaddleOcr(context, engine::session, PaddleOcr.Policy.MEDIUM);
+            assertThat(recognizer.recognize(crop)).isEqualTo("資料の文字をコピーする");
+        } finally { crop.recycle(); full.recycle(); }
+    }
+
+    @Test(timeout = 1200000) public void bundledMediumExecutesOnAndroidCpu() throws Exception {
+        var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        try (OcrEngine engine = new OcrEngine(context);
+             var input = ai.onnxruntime.OnnxTensor.createTensor(ai.onnxruntime.OrtEnvironment.getEnvironment(), java.nio.FloatBuffer.wrap(new float[3 * 48 * 32]), new long[]{1, 3, 48, 32})) {
+            var session = engine.session(PaddleOcr.MEDIUM);
+            try (var output = session.run(java.util.Map.of(session.getInputNames().iterator().next(), input))) {
+                var tensor = (ai.onnxruntime.OnnxTensor)output.get(0);
+                assertThat(tensor.getInfo().getShape()[2]).isEqualTo(18710);
+                assertThat(tensor.getFloatBuffer().get(0)).isFinite();
+            }
+        }
+    }
+
     @Test(timeout = 600000) public void bundledPaddleReadsJapaneseAndEnglishOnAndroidCpu() throws Exception {
         var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Bitmap source = fixture();

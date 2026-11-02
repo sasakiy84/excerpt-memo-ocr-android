@@ -1,6 +1,6 @@
 # 方解抄（ほうかいしょう）
 
-Android スマホで資料を撮影すると自動で読み取り、文字を選んでコピーするアプリです。NDLOCR-Lite、PP-OCRv6 small、UVDoc の ONNX モデルを同梱し、ページに合わせて端末内で処理します。
+Android スマホで資料を撮影すると自動で読み取り、文字を選んでコピーするアプリです。NDLOCR-Lite、PP-OCRv6 small / medium、UVDoc の ONNX モデルを同梱し、ページに合わせて端末内で処理します。
 
 画像上の開始・終了ハンドルで抜粋範囲を指定できます。選択した文章の欄は、下から引き上げて高さを調整できます。行の位置と字下げから段落を判定し、段落内の改行は自動で結合します。画像の切り抜き範囲と回転角度も手動で調整できます。ページ番号・ルビ・表は初期設定では除外し、「読取対象」メニューのチェックボックスで切り替えます。コピー時には、識別できたページ番号を引用末尾へ付けます。
 
@@ -40,3 +40,5 @@ GitHub Actions の repository secrets に次の値を設定します。
 DINOv3 を蒸留した検出モデルには DINOv3 License が適用されます。各ライセンスと出典はアプリの「ライセンス」と [assets/licenses](app/src/main/assets/licenses) に収録しています。アプリ独自コードは MIT License です。
 
 [PP-OCRv6 small](https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx) と [UVDoc](https://huggingface.co/PaddlePaddle/UVDoc_onnx) は PaddlePaddle 公式の ONNX 配布を使用しています（Apache-2.0）。画像の輪郭処理と透視変換には OpenCV 4.12.0 を使用しています。
+
+PP-OCR の認識スコアが低い行は medium で一度だけ再確認します。small のみ・最初から medium・小型言語モデルとの比較は [選択的再OCRの比較](docs/ocr-selective-comparison.md) に記録しています。

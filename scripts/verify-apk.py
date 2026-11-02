@@ -11,6 +11,7 @@ import sys
 import zipfile
 
 apk, version = sys.argv[1:]
+assert Path(apk).stat().st_size <= 800_000_000, "APK exceeds the 800 MB budget"
 aapt = Path(os.environ["ANDROID_HOME"]) / "build-tools/36.0.0/aapt"
 metadata = subprocess.check_output([str(aapt), "dump", "badging", apk], text=True)
 assert "name='com.sasakiy84.excerptmemo'" in metadata
@@ -31,7 +32,7 @@ with zipfile.ZipFile(apk) as archive:
     for name, digest in files.items():
         assert hashlib.sha256(archive.read("assets/" + name)).hexdigest() == digest, name
     total_bytes = sum(archive.getinfo(name).file_size for name in models)
-    assert total_bytes <= 2 * 157110896, "Model workflow exceeds twice the NDLOCR-Lite baseline"
+    assert total_bytes <= 800_000_000, "Model bundle exceeds the 800 MB budget"
     for name in models:
         assert archive.getinfo(name).compress_type == zipfile.ZIP_STORED
     assert any(name.startswith("lib/arm64-v8a/") and name.endswith("libonnxruntime.so") for name in archive.namelist())

@@ -17,6 +17,11 @@ import org.robolectric.annotation.GraphicsMode;
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 public final class PaddleOcrHostTest {
     @BeforeClass public static void loadHostCpuOpenCv() { nu.pattern.OpenCV.loadLocally(); }
+    @Test public void confidenceExcludesBlankAndRepeatedCtcFrames() {
+        var result = PaddleOcr.decodeScored(java.nio.FloatBuffer.wrap(new float[]{.99f, .005f, .005f, .1f, .8f, .1f, .05f, .9f, .05f, .8f, .1f, .1f, .2f, .2f, .6f}), 5, 3, new String[]{"", "甲", "乙"});
+        assertThat(result.text()).isEqualTo("甲乙");
+        assertThat(result.confidence()).isWithin(.0001f).of(.7f);
+    }
     @Test public void actualPaddleModelsReadJapaneseAndEnglish() throws Exception {
         try (var input = getClass().getResourceAsStream("/horizontal.png"); OcrEngine engine = new OcrEngine(RuntimeEnvironment.getApplication())) {
             Bitmap image = BitmapFactory.decodeStream(input);

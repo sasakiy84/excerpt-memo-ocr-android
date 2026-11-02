@@ -1,4 +1,4 @@
-PaddleOCR / PP-OCRv6 small / UVDoc ONNX
+PaddleOCR / PP-OCRv6 small + medium / UVDoc ONNX
 Copyright PaddlePaddle Authors / Baidu
 https://github.com/PaddlePaddle/PaddleOCR
 Apache License 2.0; see PaddleOCR-LICENSE.txt
@@ -11,6 +11,7 @@ Pinned model repositories, revisions and checksums:
 app/src/main/assets/models-manifest.json
 PaddlePaddle/PP-OCRv6_small_det_onnx
 PaddlePaddle/PP-OCRv6_small_rec_onnx
+PaddlePaddle/PP-OCRv6_medium_rec_onnx
 PaddlePaddle/UVDoc_onnx
 Models were not retrained or quantized.
 

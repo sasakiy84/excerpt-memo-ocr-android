@@ -39,13 +39,19 @@ public final class OcrEngine implements AutoCloseable {
     private final Map<String, OrtSession> sessions = new HashMap<>();
     private final String[] charset;
     private PaddleOcr paddle;
+    private final PaddleOcr.Policy recognitionPolicy;
     public record PageResult(Bitmap image, List<OcrLine> lines, boolean rectified, String workflow) {}
     private static final String DETECTOR = "deim-s-1024x1024.onnx";
     private static final String SHORT = "parseq-ndl-24x256-30-tiny-189epoch-tegaki3-r8data-202604.onnx";
     private static final String MEDIUM = "parseq-ndl-24x384-50-tiny-300epoch-tegaki3-r8data-202604.onnx";
     private static final String LONG = "parseq-ndl-24x768-100-tiny-153epoch-tegaki3-r8data-202604.onnx";
 
-    public OcrEngine(Context context) throws Exception {
+    public OcrEngine(Context context) throws Exception { this(context, true); }
+
+    OcrEngine(Context context, boolean selectiveRecognition) throws Exception { this(context, selectiveRecognition ? PaddleOcr.Policy.SELECTIVE : PaddleOcr.Policy.SMALL); }
+
+    OcrEngine(Context context, PaddleOcr.Policy recognitionPolicy) throws Exception {
+        this.recognitionPolicy = recognitionPolicy;
         this.context = context.getApplicationContext();
         try (InputStream input = context.getAssets().open("charset.json")) {
             JSONArray characters = new JSONArray(new String(input.readAllBytes(), StandardCharsets.UTF_8));
@@ -157,7 +163,7 @@ public final class OcrEngine implements AutoCloseable {
                 checkCancelled(cancelled);
                 Bitmap crop = Bitmap.createBitmap(target, d.box.left, d.box.top, d.box.width(), d.box.height());
                 String text;
-                try { text = route == OcrRouting.Route.FLATTEN_PADDLE ? paddle().recognize(crop) : recognize(crop, d.tier, cancelled); }
+                try { text = route == OcrRouting.Route.FLATTEN_PADDLE ? paddle().recognize(crop, cancelled) : recognize(crop, d.tier, cancelled); }
                 finally { if (crop != target) crop.recycle(); }
                 if (!text.isBlank()) lines.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind));
                 progress.update(stage, ++done, layout.size());
@@ -170,7 +176,7 @@ public final class OcrEngine implements AutoCloseable {
     }
 
     private PaddleOcr paddle() throws Exception {
-        if (paddle == null) paddle = new PaddleOcr(context, this::session);
+        if (paddle == null) paddle = new PaddleOcr(context, this::session, recognitionPolicy);
         return paddle;
     }
 

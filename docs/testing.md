@@ -8,7 +8,7 @@ python3 scripts/verify-models.py
 python3 scripts/gradle-cloud.py --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
 ```
 
-ホスト側は標準 57 件と、外部の提供写真を使う任意の比較・編集確認 2 件です。読み順・復号、実モデル OCR、選択・コピー、引用・フィルタ、画像編集、段落整形、文章ドロワー、処理経路の判定、PP-OCR と補正済みページの再読取りを確認します。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。画面画像は `app/build/reports/ui/` に出力します。
+ホスト側は標準 58 件と、外部の提供写真を使う任意の比較・編集確認 3 件です。読み順・復号、実モデル OCR、選択・コピー、引用・フィルタ、画像編集、段落整形、文章ドロワー、処理経路の判定、PP-OCR と補正済みページの再読取りを確認します。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。画面画像は `app/build/reports/ui/` に出力します。
 
 提供写真を使う任意テストの実行方法と、ランタイム・画像補間の違いは [ocr-comparison.md](ocr-comparison.md) を参照してください。写真を指定しない通常実行では、この 1 件はスキップされます。
 
@@ -52,7 +52,7 @@ UVDoc は仮想化なしのエミュレーターでは 20 分枠でも完了し�
 ## リリース APK
 
 ```sh
-python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.5.1
+python3 scripts/verify-apk.py app/build/outputs/apk/release/app-release.apk 0.6.0
 "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
 "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 app/build/outputs/apk/release/app-release.apk
 ```
@@ -157,4 +157,19 @@ python3 scripts/run-device-tests.py --class-name com.sasakiy84.excerptmemo.Docum
 python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
   --class-name 'com.sasakiy84.excerptmemo.ImageEditUiTest,com.sasakiy84.excerptmemo.DocumentUiTest#selectCharactersSwitchToTextCopyAndRestoreAfterRotation' \
   --expected-tests 2
+```
+
+## 0.6.0 の選択的再OCR
+
+- 標準ホストテスト 58 件が成功。外部写真の比較・編集確認 3 件も実行し、旧方式との比較に加えて、同じ Java コードの small / 選択的再OCR / medium の実測を保存した。
+- `SelectiveOcrBenchmarkTest` は private な `lm/gold.private.json` を使用する。入力をモックせず、認識結果と時間を `lm/java-benchmark.json` に保存する。正解文をモデルの学習に使わない。評価条件・範囲は [比較レポート](ocr-selective-comparison.md)。
+- CTC の blank と重複フレームが認識スコアに入らないことを検査した。small のスコアが 0.95 未満の非空行だけ、同じ入力を medium で一度認識する。再試行前にキャンセルを確認する。
+- debug / release lint、モデル・文字表 10 ファイルのチェックサム、署名付きAPK、arm64・16 KB 整列の検査を実施した。APKとモデル合計の容量上限を800MBに更新した。
+- Android CPU の medium 互換性テスト 1 件が成功。幅32の小さな入力でモデル全体を実行し、出力クラス数と有限の値を検査する。速度や日本語の認識精度のテストとは分ける。
+- Android CPU で medium を最初から使い、日本語「資料の文字をコピーする」を完全一致で認識するテストも成功。生成画像の文字行を切り出し、本番と同じ前処理・復号を使った。仮想化なしのエミュレーターでは 555.4 秒かかった値であり、物理端末の性能値には使わない。
+- Android の通しのテストは 11 件。今回の対象は medium の追加確認 2 件で、全11件の通し成功や物理端末の性能を確認したという意味ではない。
+
+```sh
+python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
+  --class-name com.sasakiy84.excerptmemo.PaddleInstrumentedTest#bundledMediumReadsJapaneseOnAndroidCpu --expected-tests 1
 ```

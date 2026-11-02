@@ -25,7 +25,7 @@
     <string name="ndl_detecting">NDLOCR-Lite で行を検出中</string>
     <string name="ndl_recognizing">NDLOCR-Lite を実行中</string>
     <string name="paddle_detecting">PP-OCRv6 small で行を検出中</string>
-    <string name="paddle_recognizing">PP-OCRv6 small を実行中</string>
+    <string name="paddle_recognizing">PP-OCRv6 を実行中</string>
     <string name="uvdoc_running">UVDoc で補正中</string>
     <string name="ocr_progress">%1$s、%2$d/%3$d</string>
     <string name="image_loading">画像を開いています…</string>
