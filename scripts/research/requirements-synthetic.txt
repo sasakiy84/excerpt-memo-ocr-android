@@ -1,0 +1,2 @@
+# Only needed to generate known-text font fixtures; no Android build dependency.
+Pillow==13.0.0

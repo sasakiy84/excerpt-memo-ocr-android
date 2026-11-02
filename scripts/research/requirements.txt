@@ -1,0 +1,4 @@
+# Isolated host research environment; not used by Android builds or release.
+numpy==2.5.4
+opencv-python-headless==5.0.0.93
+onnxruntime==1.24.3

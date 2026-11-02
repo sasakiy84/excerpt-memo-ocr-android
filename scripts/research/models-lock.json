@@ -1,0 +1,228 @@
+{
+  "artifacts": [
+    {
+      "repo": "PaddlePaddle/PP-OCRv6_tiny_rec_onnx",
+      "revision": "2612ab37152ae0a677521bae4e1e3d4fb4cf7c30",
+      "file": "inference.onnx",
+      "local": "pp-tiny-rec.onnx",
+      "sha256": "9ef676d6ed3c88256a2d92c640c44f25b0c40947e111b14b8be8f594091563e6",
+      "bytes": 4462639,
+      "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_rec_onnx/resolve/2612ab37152ae0a677521bae4e1e3d4fb4cf7c30/inference.onnx"
+    },
+    {
+      "repo": "PaddlePaddle/PP-OCRv6_tiny_det_onnx",
+      "revision": "2ba1506c0380b8f0b03dd142459aac66d4421f6c",
+      "file": "inference.onnx",
+      "local": "pp-tiny-det.onnx",
+      "sha256": "193bab7a04fca699a6c82e6abb5b81bdb28177f0abd4062552b04908dafb19f8",
+      "bytes": 1780590,
+      "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_det_onnx/resolve/2ba1506c0380b8f0b03dd142459aac66d4421f6c/inference.onnx"
+    },
+    {
+      "repo": "PaddlePaddle/PP-OCRv6_medium_det_onnx",
+      "revision": "61323801669c338b7891481ec7bac61ce31b576a",
+      "file": "inference.onnx",
+      "local": "pp-medium-det.onnx",
+      "sha256": "eb13b44b25bb36f89528b68720af8a61d9cf381176107f465db1757b65d086e1",
+      "bytes": 62032837,
+      "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_det_onnx/resolve/61323801669c338b7891481ec7bac61ce31b576a/inference.onnx"
+    },
+    {
+      "repo": "MLism/yomitoku-onnx-web",
+      "revision": "79a4d0c4f476a0a34c454a2672a2557fccaad844",
+      "file": "yomitoku-text-detector-dbnet-v2_1.onnx",
+      "local": "yomi-db.onnx",
+      "sha256": "a38d33e9adcb8e6d622ef9b6e5ccc059dccd5bd1099a78d38b957ca258cd3925",
+      "bytes": 101523862,
+      "url": "https://huggingface.co/MLism/yomitoku-onnx-web/resolve/79a4d0c4f476a0a34c454a2672a2557fccaad844/yomitoku-text-detector-dbnet-v2_1.onnx"
+    },
+    {
+      "repo": "MLism/yomitoku-onnx-web",
+      "revision": "79a4d0c4f476a0a34c454a2672a2557fccaad844",
+      "file": "yomitoku-layout-parser-rtdtrv2-v2.onnx",
+      "local": "yomi-layout.onnx",
+      "sha256": "61c76af753159f6d10c2faaa68779bda95f354aaa889352d06ca3e3fa6b81df5",
+      "bytes": 172174644,
+      "url": "https://huggingface.co/MLism/yomitoku-onnx-web/resolve/79a4d0c4f476a0a34c454a2672a2557fccaad844/yomitoku-layout-parser-rtdtrv2-v2.onnx"
+    },
+    {
+      "name": "tiny",
+      "repo": "KotaroKinoshita/yomitoku-text-recognizer-parseq-tiny-dynw-v5",
+      "revision": "abd24b78292afa849e206b42ebf72464ffd7eae5",
+      "sha256": "498db515b5cc7917be3b27664569eddda63e709f70e0de118bac95e97c7dd689",
+      "bytes": 36097960,
+      "url": "https://huggingface.co/KotaroKinoshita/yomitoku-text-recognizer-parseq-tiny-dynw-v5/resolve/abd24b78292afa849e206b42ebf72464ffd7eae5/model.safetensors",
+      "local": "tiny.safetensors"
+    },
+    {
+      "name": "middle",
+      "repo": "KotaroKinoshita/yomitoku-text-recognizer-parseq-middle-dynw-v5",
+      "revision": "cfe941a992ba3eedbdd3d54ef22ef34d39a88fa7",
+      "sha256": "f3358d54b55731d732609b9806e1577f02e82be519b357c4ddbc6d7e6e280c1a",
+      "bytes": 201040400,
+      "url": "https://huggingface.co/KotaroKinoshita/yomitoku-text-recognizer-parseq-middle-dynw-v5/resolve/cfe941a992ba3eedbdd3d54ef22ef34d39a88fa7/model.safetensors",
+      "local": "middle.safetensors"
+    },
+    {
+      "name": "large",
+      "repo": "KotaroKinoshita/yomitoku-text-recognizer-parseq-large-v4_1",
+      "revision": "422ab70ae1b15eabce2df67492477fb0b67cd103",
+      "sha256": "4d855ce26dc4f588e4ba4a616f9acf11032ee830df1210f4b776a0d11586786a",
+      "bytes": 423966772,
+      "url": "https://huggingface.co/KotaroKinoshita/yomitoku-text-recognizer-parseq-large-v4_1/resolve/422ab70ae1b15eabce2df67492477fb0b67cd103/model.safetensors",
+      "local": "large.safetensors"
+    },
+    {
+      "local": "official-source.tar.gz",
+      "url": "https://codeload.github.com/kotaro-kinoshita/yomitoku/tar.gz/b765d87c9341d817d42bdbba128b2188114bd1ef",
+      "sha256": "4ce23d9663f1d18d4e1efc898e26dfa598630f82f901c6c3994d849cf741811e",
+      "bytes": 72655757
+    },
+    {
+      "local": "NotoSansJP.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/66a36c8c94b1a5d992ee4e7f392fccfe4945767c/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf",
+      "sha256": "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f",
+      "bytes": 9589900,
+      "role": "synthetic-font",
+      "license": "OFL-1.1"
+    },
+    {
+      "local": "NotoSerifJP.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5/ofl/notoserifjp/NotoSerifJP%5Bwght%5D.ttf",
+      "sha256": "2fd527ba12b6a44ec30d796d633360da0aeba6c5d4af1304ce12bb4dc15a7dfc",
+      "bytes": 13574352,
+      "role": "synthetic-font",
+      "license": "OFL-1.1"
+    }
+  ],
+  "derived": [
+    {
+      "source": "tiny-nar.onnx",
+      "file": "tiny-nar-int8.onnx",
+      "bytes": 22509993,
+      "sha256": "aabeb790be50affd2d7891c780d892a79274161cf8736d8bdf08d5a48291afad",
+      "conversion_seconds": 1.323688406002475
+    },
+    {
+      "source": "tiny-nar.onnx",
+      "file": "tiny-nar-fp16.onnx",
+      "bytes": 18336968,
+      "sha256": "f0a3160039dbd00a94c455ad384215238828b9665d7ba17bf8cb04dc7da9381d",
+      "conversion_seconds": 0.19899461600289214
+    },
+    {
+      "source": "tiny-ar.onnx",
+      "file": "tiny-ar-int8.onnx",
+      "bytes": 26691635,
+      "sha256": "ed737bbfcf520cc7b9e13fbdb2112f12b8ad717bbc7da7385a7d41600c612014",
+      "conversion_seconds": 3.481650494999485
+    },
+    {
+      "source": "tiny-ar.onnx",
+      "file": "tiny-ar-fp16.onnx",
+      "bytes": 21207644,
+      "sha256": "135d51c0aadd9d5aeb4e2f3db4c6785d1ddb800ee527ccb7b33a1c0ad340128e",
+      "conversion_seconds": 0.6002890140007366
+    },
+    {
+      "source": "middle-ar.onnx",
+      "file": "middle-ar-int8.onnx",
+      "bytes": 98715189,
+      "sha256": "dd188684b17a9083046403c2bb84ce170371c8d75bb36e26d019c5d44109e65e",
+      "conversion_seconds": 5.7906249099978595
+    },
+    {
+      "source": "middle-ar.onnx",
+      "file": "middle-ar-fp16.onnx",
+      "bytes": 103678736,
+      "sha256": "174a94ba7d1f2c69db5f3a7afb310284f675ece11813e1bda744073027e7fde9",
+      "conversion_seconds": 1.886595258001762
+    },
+    {
+      "source": "large-ar.onnx",
+      "file": "large-ar-int8.onnx",
+      "bytes": 184475228,
+      "sha256": "5625b106151f2381f066d571fb59b55e715b6de402ca7cfa243b7203d1daa376",
+      "conversion_seconds": 9.120293826003035
+    },
+    {
+      "source": "large-ar.onnx",
+      "file": "large-ar-fp16.onnx",
+      "bytes": 215141894,
+      "sha256": "0fec7da9dfaa69df3f94d894deef4c4456807314a51fa33242deb16939eee415",
+      "conversion_seconds": 2.6805728479957907
+    },
+    {
+      "file": "tiny-nar.onnx",
+      "bytes": 36377198,
+      "sha256": "3d279315b523fa9dcd5504b0e0ad92264654e636bc1de4c03d70c8e3bfeefcd4",
+      "opset": 17,
+      "decode_ar": false,
+      "refine_iters": 1,
+      "boolean_cloze_mask": false
+    },
+    {
+      "file": "tiny-ar.onnx",
+      "bytes": 39249664,
+      "sha256": "c38e31dbb87bdab17337bba8c282e6be528bd2886d97dc47afb37a50832584a0",
+      "opset": 17,
+      "decode_ar": true,
+      "refine_iters": 1,
+      "boolean_cloze_mask": false
+    },
+    {
+      "file": "middle-nar.onnx",
+      "bytes": 201319354,
+      "sha256": "b8e1e250a23a67b3808c3969f1eb6aebb4c72ee3e7fee1a81127d69baac5470d",
+      "opset": 17,
+      "decode_ar": false,
+      "refine_iters": 1,
+      "boolean_cloze_mask": false
+    },
+    {
+      "file": "middle-ar.onnx",
+      "bytes": 204191820,
+      "sha256": "461fc48897279db70c11318b8546b4185d9e52cb83c1a595d0ef193ec57a9695",
+      "opset": 17,
+      "decode_ar": true,
+      "refine_iters": 1,
+      "boolean_cloze_mask": false
+    },
+    {
+      "file": "large-nar.onnx",
+      "bytes": 424245663,
+      "sha256": "0778d19c674853cb571b873ffcec728615bfa293c65c2d2ac6dbc7ca4c82dc41",
+      "opset": 17,
+      "decode_ar": false,
+      "refine_iters": 1,
+      "boolean_cloze_mask": false
+    },
+    {
+      "file": "large-ar.onnx",
+      "bytes": 427118129,
+      "sha256": "2918a1b8457b6402c0861e238863c531898d0df609a9ad0a7fbd3ad1490dda6c",
+      "opset": 17,
+      "decode_ar": true,
+      "refine_iters": 1,
+      "boolean_cloze_mask": false
+    },
+    {
+      "file": "tiny-nar-cloze.onnx",
+      "bytes": 36293658,
+      "sha256": "c5180c744550fe6ce93e32d3d6f8ac469b1099eed0e5d037a67f2cac508cc861",
+      "opset": 17,
+      "decode_ar": false,
+      "refine_iters": 1,
+      "boolean_cloze_mask": true
+    },
+    {
+      "file": "tiny-ar-cloze.onnx",
+      "bytes": 39166014,
+      "sha256": "5db9e9e91017566477561b182f4ffb9341148c28018b708a43e8346983267af9",
+      "opset": 17,
+      "decode_ar": true,
+      "refine_iters": 1,
+      "boolean_cloze_mask": true
+    }
+  ]
+}

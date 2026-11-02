@@ -1,0 +1,108 @@
+[
+  {
+    "label": "released",
+    "image": "user-01.jpg",
+    "preprocessing": "none",
+    "detector": "pp-small",
+    "recognizer": "pp-small",
+    "retry": "pp-medium",
+    "threshold": 0.95
+  },
+  {
+    "label": "released",
+    "image": "user-02.jpg",
+    "preprocessing": "none",
+    "detector": "ndl",
+    "recognizer": "ndl"
+  },
+  {
+    "label": "released",
+    "image": "user-03.jpg",
+    "preprocessing": "uvdoc",
+    "detector": "ndl",
+    "recognizer": "pp-small",
+    "retry": "pp-medium",
+    "threshold": 0.95
+  },
+  {
+    "label": "paddle-balanced",
+    "image": "user-01.jpg",
+    "preprocessing": "clahe",
+    "detector": "pp-tiny",
+    "recognizer": "pp-small",
+    "retry": "pp-medium",
+    "threshold": 0.95
+  },
+  {
+    "label": "paddle-small",
+    "image": "user-01.jpg",
+    "preprocessing": "clahe",
+    "detector": "pp-tiny",
+    "recognizer": "pp-small"
+  },
+  {
+    "label": "paddle-medium",
+    "image": "user-01.jpg",
+    "preprocessing": "clahe",
+    "detector": "pp-tiny",
+    "recognizer": "pp-medium"
+  },
+  {
+    "label": "tiny-ar-int8",
+    "image": "user-01.jpg",
+    "preprocessing": "clahe",
+    "detector": "pp-tiny",
+    "recognizer": "yomi-tiny-ar-int8"
+  },
+  {
+    "label": "tiny-nar-cloze",
+    "image": "user-01.jpg",
+    "preprocessing": "clahe",
+    "detector": "pp-tiny",
+    "recognizer": "yomi-tiny-nar-cloze"
+  },
+  {
+    "label": "paddle-balanced",
+    "image": "user-03.jpg",
+    "preprocessing": "uvdoc",
+    "detector": "pp-medium",
+    "recognizer": "pp-small"
+  },
+  {
+    "label": "paddle-selective",
+    "image": "user-03.jpg",
+    "preprocessing": "uvdoc",
+    "detector": "pp-medium",
+    "recognizer": "pp-small",
+    "retry": "pp-medium",
+    "threshold": 0.95
+  },
+  {
+    "label": "tiny-ar-int8",
+    "image": "user-03.jpg",
+    "preprocessing": "uvdoc",
+    "detector": "pp-medium",
+    "recognizer": "yomi-tiny-ar-int8"
+  },
+  {
+    "label": "tiny-nar-cloze",
+    "image": "user-03.jpg",
+    "preprocessing": "uvdoc",
+    "detector": "pp-medium",
+    "recognizer": "yomi-tiny-nar-cloze"
+  },
+  {
+    "label": "large-ar-int8",
+    "image": "user-03.jpg",
+    "preprocessing": "uvdoc",
+    "detector": "pp-medium",
+    "recognizer": "yomi-large-ar-int8"
+  },
+  {
+    "label": "dbnet-small",
+    "image": "user-03.jpg",
+    "preprocessing": "uvdoc-illumination",
+    "detector": "yomi-db",
+    "recognizer": "pp-small"
+  }
+]
