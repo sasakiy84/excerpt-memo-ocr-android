@@ -56,7 +56,7 @@ public final class MainActivityHostTest {
         } finally { DocumentExtractionHostTest.close(controller); }
     }
 
-    @Test public void pageTextSizeSettingPersistsAndDoesNotShrinkTextMode() throws Exception {
+    @Test public void resultTextSizeSettingUsesDedicatedActivityAndPersistsInBothModes() throws Exception {
         var controller = Robolectric.buildActivity(MainActivity.class).setup();
         try {
             MainActivity activity = controller.get();
@@ -66,15 +66,18 @@ public final class MainActivityHostTest {
             model.allLines = List.of(new OcrLine(10, 10, 90, 30, "資料の文字"));
             model.textMode = false; model.setInclusions(false, false, false);
             ((Toolbar) activity.findViewById(R.id.toolbar)).getMenu().performIdentifierAction(6, 0);
-            var dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog();
-            ((android.widget.SeekBar) dialog.findViewById(R.id.page_text_size)).setProgress(20);
+            var intent = org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity();
+            assertEquals(SettingsActivity.class.getName(), intent.getComponent().getClassName());
+            var settings = Robolectric.buildActivity(SettingsActivity.class).setup();
+            ((android.widget.SeekBar) settings.get().findViewById(R.id.page_text_size)).setProgress(6);
+            settings.pause().stop().destroy();
+            controller.pause().resume();
             float scaled = activity.getResources().getDisplayMetrics().scaledDensity;
-            assertEquals(20, ((EditText) activity.findViewById(R.id.result_text)).getTextSize() / scaled, .01f);
-            dialog.dismiss();
+            assertEquals(6, ((EditText) activity.findViewById(R.id.result_text)).getTextSize() / scaled, .01f);
             controller.recreate(); activity = controller.get();
-            assertEquals(20, ((EditText) activity.findViewById(R.id.result_text)).getTextSize() / scaled, .01f);
+            assertEquals(6, ((EditText) activity.findViewById(R.id.result_text)).getTextSize() / scaled, .01f);
             ((android.widget.RadioGroup) activity.findViewById(R.id.mode_toggle)).check(R.id.text_mode);
-            assertEquals(17, ((EditText) activity.findViewById(R.id.result_text)).getTextSize() / scaled, .01f);
+            assertEquals(6, ((EditText) activity.findViewById(R.id.result_text)).getTextSize() / scaled, .01f);
         } finally {
             controller.get().getSharedPreferences("display", 0).edit().clear().commit();
             DocumentExtractionHostTest.close(controller);

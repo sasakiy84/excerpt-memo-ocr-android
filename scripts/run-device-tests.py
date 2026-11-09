@@ -11,7 +11,7 @@ import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--serial", default="emulator-5556")
-parser.add_argument("--expected-tests", type=int, default=14)
+parser.add_argument("--expected-tests", type=int, default=15)
 parser.add_argument("--reuse-app", action="store_true", help="Reuse the matching debug APK already installed on this device")
 parser.add_argument("--no-incremental", action="store_true", help="Use a regular APK install when the emulator's IncFS extraction fails")
 parser.add_argument("--root-staging", action="store_true", help="Stage a complete APK on a rooted test emulator; retain Android signature verification")

@@ -8,7 +8,7 @@ python3 scripts/verify-models.py
 python3 scripts/gradle-cloud.py --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
 ```
 
-ホスト側は標準 66 件と、外部の提供写真を使う任意の比較・編集確認 3 件です。読み順・復号、実モデル OCR、選択・コピー、引用・フィルタ、画像編集、段落整形、文章ドロワー、処理経路の判定、PP-OCR と補正済みページの再読取りを確認します。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。画面画像は `app/build/reports/ui/` に出力します。
+ホスト側は標準 74 件と、外部の提供写真を使う任意の比較・編集確認 3 件です。読み順・復号、実モデル OCR、選択・コピー、引用・フィルタ、画像編集、段落整形、文章ドロワー、処理経路の判定、PP-OCR と補正済みページの再読取りを確認します。OCR と画面には Android 16 の Robolectric と native graphics を使い、OCR は同じバージョンの ONNX Runtime の Linux CPU カーネルで実行します。認識結果をモックしていません。画面画像は `app/build/reports/ui/` に出力します。
 
 提供写真を使う任意テストの実行方法と、ランタイム・画像補間の違いは [ocr-comparison.md](ocr-comparison.md) を参照してください。写真を指定しない通常実行では、この 1 件はスキップされます。
 
@@ -235,3 +235,29 @@ python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
 python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
   --class-name com.sasakiy84.excerptmemo.PaddleInstrumentedTest#japaneseDetectorsExecuteOnAndroidCpu --expected-tests 1
 ```
+
+## 設定画面とモデルの手動選択
+
+- 設定を専用の `SettingsActivity` に分離。読み取り結果の文字サイズはページ表示とテキスト表示へ反映する。
+- 自動選択は初期状態でオン。オフでは NDLOCR-Lite / PP-OCRv6 tiny・small・medium を指定し、PP-OCR の文字認識 small・medium と UVDoc 補正を選ぶ。設定は読み取り開始時に取得し、進行中の処理には適用しない。
+- 標準ホスト72件成功、外部写真の任意3件スキップ。全手動モデルの実認識、自動選択への復帰、設定画面への遷移、再作成後の保存状態、結果画面への文字サイズ反映を確認。モデル・文字表12ファイル、debug lint、debug / AndroidテストAPKのビルドも成功。
+- `app/build/reports/ui/settings.png` で設定画面の描画を確認。
+- Android 16 ソフトウェアエミュレーターでは、追加した `SettingsInstrumentedTest` が Activity の `RESUMED` 待ちで失敗。既存の選択・コピー操作テストも結果画面のレイアウト待ちでタイムアウトした。Android上の設定操作・再作成を検証済みとはしない。テストは起動・再作成後の実インスタンスと保存値を検査し、待機失敗も失敗として報告する。
+
+```sh
+python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
+  --class-name com.sasakiy84.excerptmemo.SettingsInstrumentedTest --expected-tests 1
+```
+
+## 文字サイズ6〜24と言語別モデル設定
+
+- 読み取り結果の文字サイズを6〜24へ拡張。ページ表示・テキスト表示の両方で6を保存・復元・適用できることを確認。
+- モデル設定の言語切り替えを追加。自動選択、読取モデル、文字認識モデル、UVDoc補正を日本語・英語で独立して保存し、読み取り開始時の認識言語に対応する設定を適用する。既存の共通設定は各言語へ引き継ぐ。
+- 標準ホスト74件成功、外部写真の任意3件スキップ。debug lint、debug / AndroidテストAPKビルド、モデル・文字表12ファイルの検証も成功。
+- ロック画面をスワイプで解除した Android 16 エミュレーターで、`SettingsInstrumentedTest` 1件が15.529秒で成功。日本語・英語のモデル設定の独立性、サイズ6、再作成されたActivityの再開と保存状態を実端末APIで確認した。端末全15件の通し検証ではない。
+
+## v0.9.0 リリース前確認
+
+- strict検証を保持した通常実行でホスト74件成功、外部写真の任意3件スキップ。debug / release lint、debug / Androidテスト / 未署名release APKのビルドが成功。
+- モデル・文字表12ファイルと、v0.9.0未署名release APKの版・SDK・権限・モデル内容・arm64・16KB整列を確認。
+- 言語別設定・文字サイズ6・設定画面再作成のAndroid 16テスト1件は直前の検証結果を使用。端末全15件の通し成功は未確認。署名と公開APKの最終検証はActionsで実行する。

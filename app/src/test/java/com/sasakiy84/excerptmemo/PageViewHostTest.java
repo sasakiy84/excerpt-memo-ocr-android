@@ -74,7 +74,7 @@ public final class PageViewHostTest {
             touch(view, MotionEvent.ACTION_DOWN, 350, 140);
             touch(view, MotionEvent.ACTION_MOVE, 250, 340);
             touch(view, MotionEvent.ACTION_UP, 250, 340);
-            assertEquals("の文字を読む\n選択", model.text);
+            assertEquals("の文字を読む選択", model.text);
         } finally { DocumentExtractionHostTest.close(controller); }
     }
 

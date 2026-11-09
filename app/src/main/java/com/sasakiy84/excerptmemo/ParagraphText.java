@@ -51,7 +51,7 @@ final class ParagraphText {
         if (a.kind() != OcrLine.Kind.TEXT || b.kind() != OcrLine.Kind.TEXT || vertical != b.vertical()) return true;
         float thick = (thickness(a, vertical) + thickness(b, vertical)) / 2;
         float gap = vertical ? a.left() - b.right() : b.top() - a.bottom();
-        if (gap < -thick * .3f || gap > thick * 1.2f
+        if (gap < -thick * .3f || gap > thick * 1.8f
                 || Math.max(thickness(a, vertical), thickness(b, vertical)) > Math.min(thickness(a, vertical), thickness(b, vertical)) * 1.6f) return true;
         float em = Math.max(advance(a, vertical), advance(b, vertical));
         if (Math.abs(start(a, vertical) - start(b, vertical)) > em * 3) return true;
@@ -68,8 +68,10 @@ final class ParagraphText {
             widths[count++] = advance(candidate, vertical);
         }
         if (count > 0) { Arrays.sort(widths, 0, count); em = widths[count / 2]; }
-        boolean shortPrevious = fullEnd - end(a, vertical) > em * .8f;
-        boolean indentedStart = start(b, vertical) - base >= em * .55f && start(b, vertical) - start(a, vertical) >= em * .55f;
+        // Small ragged ends and OCR box drift are common within a paragraph.
+        // Require a clearly short line or a near-full-character indent to split.
+        boolean shortPrevious = fullEnd - end(a, vertical) > em * 2;
+        boolean indentedStart = start(b, vertical) - base >= em * .8f && start(b, vertical) - start(a, vertical) >= em * .8f;
         return shortPrevious || indentedStart;
     }
 }

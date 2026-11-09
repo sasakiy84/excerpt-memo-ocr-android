@@ -36,6 +36,27 @@ public final class PaddleOcrHostTest {
         } finally { image.recycle(); }
     }
 
+    @Test public void manualModelsOverrideAutomaticRouteAndCanReturnToAutomatic() throws Exception {
+        try (var input = getClass().getResourceAsStream("/vertical.png"); OcrEngine engine = new OcrEngine(RuntimeEnvironment.getApplication())) {
+            Bitmap page = BitmapFactory.decodeStream(input);
+            try {
+                for (var model : OcrSettings.Model.values()) {
+                    var stages = new java.util.ArrayList<OcrEngine.Stage>();
+                    var result = engine.readPage(page, false, OcrLanguage.JAPANESE,
+                            new OcrSettings.Selection(false, model, model == OcrSettings.Model.MEDIUM, false),
+                            new AtomicBoolean(), (stage, done, total) -> stages.add(stage));
+                    assertTrue(ReadingOrder.text(result.lines()).contains("資料"));
+                    assertEquals(model == OcrSettings.Model.NDL ? "ndl" : "manual-" + model.name().toLowerCase(java.util.Locale.ROOT), result.workflow());
+                    assertFalse(stages.contains(OcrEngine.Stage.UVDOC));
+                    if (model == OcrSettings.Model.TINY) assertTrue(stages.contains(OcrEngine.Stage.PADDLE_TINY_DETECTION));
+                    if (model == OcrSettings.Model.MEDIUM) assertTrue(stages.contains(OcrEngine.Stage.PADDLE_MEDIUM_DETECTION));
+                }
+                assertEquals("ndl", engine.readPage(page, false, OcrLanguage.JAPANESE,
+                        new AtomicBoolean(), (stage, done, total) -> {}).workflow());
+            } finally { page.recycle(); }
+        }
+    }
+
     @Test public void japaneseDetectorsPreserveHorizontalAndVerticalText() throws Exception {
         try (OcrEngine engine = new OcrEngine(RuntimeEnvironment.getApplication())) {
             var paddle = new PaddleOcr(RuntimeEnvironment.getApplication(), engine::session, PaddleOcr.Policy.SMALL);

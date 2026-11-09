@@ -111,18 +111,41 @@ public final class OcrEngine implements AutoCloseable {
         } finally { if (crop != page) crop.recycle(); }
     }
 
-    /** One chosen route, no model race or user-facing engine selector. */
+    /** Automatic routing remains the default; manual settings apply per read. */
     public PageResult readPage(Bitmap page, boolean alreadyRectified, AtomicBoolean cancelled, Progress progress) throws Exception {
         return readPage(page, alreadyRectified, OcrLanguage.JAPANESE, cancelled, progress);
     }
 
     public PageResult readPage(Bitmap page, boolean alreadyRectified, OcrLanguage language, AtomicBoolean cancelled, Progress progress) throws Exception {
+        return readPage(page, alreadyRectified, language, new OcrSettings.Selection(true, OcrSettings.Model.TINY, false, false), cancelled, progress);
+    }
+
+    PageResult readPage(Bitmap page, boolean alreadyRectified, OcrLanguage language, OcrSettings.Selection selected,
+                        AtomicBoolean cancelled, Progress progress) throws Exception {
         checkCancelled(cancelled); progress.update(Stage.NDL_DETECTION, 0, 1);
         List<Detection> layout = detect(page, session(DETECTOR));
         List<OcrLine> geometry = layout.stream().map(d -> new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, "", d.kind)).toList();
-        OcrRouting.Route route = alreadyRectified ? OcrRouting.Route.FLATTEN_PADDLE
+        if (!selected.automatic() && selected.model() != OcrSettings.Model.NDL) {
+            Bitmap target = page;
+            try {
+                if (selected.flatten() && !alreadyRectified) {
+                    progress.update(Stage.UVDOC, 0, 1); target = flatten(page); checkCancelled(cancelled);
+                    progress.update(Stage.NDL_DETECTION, 0, 1); layout = detect(target, session(DETECTOR));
+                }
+                String detector = switch (selected.model()) {
+                    case TINY -> PaddleOcr.TINY_DETECTOR;
+                    case MEDIUM -> PaddleOcr.MEDIUM_DETECTOR;
+                    default -> PaddleOcr.DETECTOR;
+                };
+                var lines = readPaddle(target, layout, cancelled, progress, language, detector,
+                        selected.mediumRecognition() ? PaddleOcr.Policy.MEDIUM : PaddleOcr.Policy.SMALL);
+                checkCancelled(cancelled);
+                return new PageResult(target, lines, target != page, "manual-" + selected.model().name().toLowerCase(java.util.Locale.ROOT));
+            } catch (Exception | OutOfMemoryError exception) { if (target != page) target.recycle(); throw exception; }
+        }
+        OcrRouting.Route route = !selected.automatic() ? OcrRouting.Route.NDL : alreadyRectified ? OcrRouting.Route.FLATTEN_PADDLE
                 : OcrRouting.choose(geometry, page.getWidth(), page.getHeight(), true);
-        if (language == OcrLanguage.ENGLISH && route == OcrRouting.Route.NDL) route = OcrRouting.Route.PADDLE;
+        if (selected.automatic() && language == OcrLanguage.ENGLISH && route == OcrRouting.Route.NDL) route = OcrRouting.Route.PADDLE;
         checkCancelled(cancelled);
         if (route == OcrRouting.Route.PADDLE) {
             Bitmap contrast = null;

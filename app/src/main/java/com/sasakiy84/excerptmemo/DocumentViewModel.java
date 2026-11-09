@@ -223,12 +223,13 @@ public final class DocumentViewModel extends AndroidViewModel {
         Bitmap source = page;
         boolean alreadyRectified = pageRectified;
         OcrLanguage selectedLanguage = language;
+        OcrSettings.Selection selectedModels = OcrSettings.load(getApplication(), selectedLanguage);
         long started = System.nanoTime();
         processingSeconds = -1; busy = true; status = getApplication().getString(R.string.loading_model); changed();
         worker.execute(() -> {
             try {
                 if (engine == null) engine = new OcrEngine(getApplication());
-                OcrEngine.PageResult recognized = engine.readPage(source, alreadyRectified, selectedLanguage, token, (stage, done, total) -> main.post(() -> {
+                OcrEngine.PageResult recognized = engine.readPage(source, alreadyRectified, selectedLanguage, selectedModels, token, (stage, done, total) -> main.post(() -> {
                     if (token.get()) return;
                     int label = switch (stage) {
                         case NDL_DETECTION -> R.string.ndl_detecting;

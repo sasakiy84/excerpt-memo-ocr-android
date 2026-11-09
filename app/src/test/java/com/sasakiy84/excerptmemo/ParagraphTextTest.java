@@ -22,9 +22,24 @@ public final class ParagraphTextTest {
     @Test public void shortPreviousLineEndsParagraph() {
         assertEquals("あいうえおかきくけこさしすせそ\nたちつてとなにぬねの", joined(List.of(h(0,200,0,"あいうえおかきくけこ"), h(0,100,30,"さしすせそ"), h(0,200,60,"たちつてとなにぬねの"))));
     }
-    @Test public void oneCharacterShortEndingStartsParagraphButSmallBoxNoiseDoesNot() {
-        assertEquals("あいうえおかきくけこさしすせそたちつて\nとなにぬねのはひふへ", joined(List.of(h(0,200,0,"あいうえおかきくけこ"), h(0,180,30,"さしすせそたちつて"), h(0,200,60,"となにぬねのはひふへ"))));
+    @Test public void oneCharacterShortEndingAndSmallBoxNoiseStayJoined() {
+        assertEquals("あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへ", joined(List.of(h(0,200,0,"あいうえおかきくけこ"), h(0,180,30,"さしすせそたちつて"), h(0,200,60,"となにぬねのはひふへ"))));
         assertEquals("あいうえおかきくけこさしすせそたちつてと", joined(List.of(h(0,195,0,"あいうえおかきくけこ"), h(0,200,30,"さしすせそたちつてと"))));
+    }
+    @Test public void modestIndentAndLineSpacingStayJoinedInBothDirections() {
+        assertEquals("前の行次の行", joined(List.of(h(0,200,0,"前の行"), h(12,200,50,"次の行"))));
+        assertEquals("前の列次の列", joined(List.of(v(0,200,100,"前の列"), v(12,200,50,"次の列"))));
+    }
+    @Test public void subCharacterIndentIsNotEnoughToSplitAParagraph() {
+        String expected = "あいうえおかきくけこさしすせそたちつてと";
+        assertEquals(expected, joined(List.of(h(0,200,0,"あいうえおかきくけこ"), h(12,200,30,"さしすせそたちつてと"))));
+        assertEquals(expected, joined(List.of(v(0,200,100,"あいうえおかきくけこ"), v(12,200,70,"さしすせそたちつてと"))));
+    }
+    @Test public void slightlyShortVerticalColumnStaysJoined() {
+        assertEquals("あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへ", joined(List.of(v(0,200,100,"あいうえおかきくけこ"), v(0,180,70,"さしすせそたちつて"), v(0,200,40,"となにぬねのはひふへ"))));
+    }
+    @Test public void clearBlankLineRemainsAParagraphBoundary() {
+        assertEquals("前の段落\n次の段落", joined(List.of(h(0,200,0,"前の段落"), h(0,200,70,"次の段落"))));
     }
     @Test public void oneCharacterIndentStartsParagraphAndFollowingLineContinuesIt() {
         assertEquals("あいうえおかきくけこ\nさしすせそたちつてとなにぬねのはひふへ", joined(List.of(h(0,200,0,"あいうえおかきくけこ"), h(20,200,30,"さしすせそたちつて"), h(0,200,60,"となにぬねのはひふへ"))));

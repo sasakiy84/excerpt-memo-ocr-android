@@ -74,7 +74,7 @@ public final class MainActivity extends FragmentActivity {
         super.onCreate(state);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
-        pageTextSize = Math.max(12, Math.min(24, getSharedPreferences("display", MODE_PRIVATE).getInt("pageTextSize", 14)));
+        pageTextSize = Math.max(6, Math.min(24, getSharedPreferences("display", MODE_PRIVATE).getInt("pageTextSize", 14)));
         View root = findViewById(R.id.root);
         ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
             Insets safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout() | WindowInsetsCompat.Type.ime());
@@ -95,7 +95,7 @@ public final class MainActivity extends FragmentActivity {
             else if (item.getItemId() == MENU_ROTATE) {
                 if (getSupportFragmentManager().findFragmentByTag("image-edit") == null) new ImageEditDialog().show(getSupportFragmentManager(), "image-edit");
             }
-            else if (item.getItemId() == MENU_SETTINGS) showDisplaySettings();
+            else if (item.getItemId() == MENU_SETTINGS) startActivity(new Intent(this, SettingsActivity.class));
             else if (item.getItemId() == MENU_FILTERS) showExtractionOptions();
             else showLicenses();
             return true;
@@ -138,6 +138,7 @@ public final class MainActivity extends FragmentActivity {
 
     @Override protected void onResume() {
         super.onResume();
+        pageTextSize = Math.max(6, Math.min(24, getSharedPreferences("display", MODE_PRIVATE).getInt("pageTextSize", 14)));
         if (document != null) render();
     }
 
@@ -176,7 +177,7 @@ public final class MainActivity extends FragmentActivity {
             drawer.setVisibility(hasText || document.textMode ? View.VISIBLE : View.GONE);
             drawer.bind(document.textPanelFraction, document.textMode);
             resultText.setEnabled(!document.busy);
-            resultText.setTextSize(document.textMode ? 17 : pageTextSize);
+            resultText.setTextSize(document.textMode ? getSharedPreferences("display", MODE_PRIVATE).getInt("pageTextSize", 17) : pageTextSize);
             if (!resultText.getText().toString().equals(document.text)) {
                 updatingText = true;
                 resultText.setText(document.text);
@@ -211,30 +212,6 @@ public final class MainActivity extends FragmentActivity {
                 document.status = "";
             }
         }
-    }
-
-    private void showDisplaySettings() {
-        LinearLayout content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL);
-        int padding = Math.round(24 * getResources().getDisplayMetrics().density);
-        content.setPadding(padding, padding / 2, padding, padding / 2);
-        TextView label = new TextView(this); label.setTextSize(16);
-        label.setText(getString(R.string.page_text_size, pageTextSize));
-        content.addView(label);
-        SeekBar size = new SeekBar(this); size.setId(R.id.page_text_size);
-        size.setMin(12); size.setMax(24); size.setProgress(pageTextSize);
-        size.setContentDescription(getString(R.string.page_text_size, pageTextSize));
-        content.addView(size, new LinearLayout.LayoutParams(-1, Math.round(56 * getResources().getDisplayMetrics().density)));
-        size.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar view, int value, boolean user) {
-                pageTextSize = value;
-                getSharedPreferences("display", MODE_PRIVATE).edit().putInt("pageTextSize", value).apply();
-                label.setText(getString(R.string.page_text_size, value));
-                size.setContentDescription(getString(R.string.page_text_size, value)); render();
-            }
-            @Override public void onStartTrackingTouch(SeekBar view) {}
-            @Override public void onStopTrackingTouch(SeekBar view) {}
-        });
-        new AlertDialog.Builder(this).setTitle(R.string.settings).setView(content).setPositiveButton(android.R.string.ok, null).show();
     }
 
     private void showExtractionOptions() {
