@@ -8,6 +8,7 @@ import android.os.Looper;
 import androidx.lifecycle.ViewModelProvider;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.nio.file.Files;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -101,6 +102,31 @@ public final class DocumentExtractionHostTest {
         } finally { close(controller); }
     }
 
+    @Test public void copyDecoratesTheSelectedExcerptAndAppendsItsPageNumber() throws Exception {
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        var activity = controller.get();
+        var model = new ViewModelProvider(activity).get(DocumentViewModel.class);
+        var prefs = QuotationFormat.preferences(model.getApplication());
+        try {
+            document(activity);
+            model.allLines = List.of(new OcrLine(100, 100, 500, 150, "引用の一行目"),
+                    new OcrLine(100, 250, 500, 300, "次の一行目"),
+                    new OcrLine(450, 940, 500, 980, "12", OcrLine.Kind.PAGE_NUMBER));
+            model.setInclusions(false, false, false);
+            assertTrue(prefs.edit().putString(QuotationFormat.PREFIX, "「").putString(QuotationFormat.SUFFIX, "」")
+                    .putString(QuotationFormat.LINE_PREFIX, "> ").putString(QuotationFormat.LINE_SUFFIX, "!").commit());
+            var editor = activity.<android.widget.EditText>findViewById(R.id.result_text);
+            editor.setSelection(2, model.text.length());
+            activity.findViewById(R.id.copy_button).performClick();
+            var clipboard = activity.getSystemService(android.content.ClipboardManager.class);
+            assertEquals("> 「の一行目!\n> 次の一行目」!（p. 12）", clipboard.getPrimaryClip().getItemAt(0).getText().toString());
+            assertEquals("引用の一行目\n次の一行目", model.text);
+        } finally {
+            prefs.edit().clear().commit();
+            close(controller);
+        }
+    }
+
     @Test public void correctingAndInsertingTextRetainsThePageOfANarrowerSelection() throws Exception {
         var controller = Robolectric.buildActivity(MainActivity.class).setup();
         try {
@@ -178,6 +204,8 @@ public final class DocumentExtractionHostTest {
             awaitIdle(model);
             assertTrue(model.status.isEmpty());
             assertEquals("資料の文字をコピーする\nAndroid 16", model.text);
+            var files = model.getApplication().getFilesDir().toPath();
+            assertArrayEquals(Files.readAllBytes(files.resolve("page.png")), Files.readAllBytes(files.resolve("source.png")));
             assertTrue(statuses.contains("NDLOCR-Lite を実行中、1/2"));
             assertTrue(model.processingSeconds > 0);
             assertEquals(model.getApplication().getString(R.string.processing_seconds, model.processingSeconds),

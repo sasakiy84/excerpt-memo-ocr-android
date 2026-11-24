@@ -22,6 +22,7 @@ public final class CameraPreview extends FrameLayout implements TextureView.Surf
     private Size resolution;
     private final Matrix bufferToView = new Matrix();
     private Preview useCase;
+    private Runnable onFirstFrame;
     private boolean frontCamera;
     private final TextureView textureView;
     private final java.util.Map<SurfaceTexture, Integer> inUse = new java.util.HashMap<>();
@@ -45,7 +46,11 @@ public final class CameraPreview extends FrameLayout implements TextureView.Surf
         });
         provide();
     }; }
-    void setUseCase(Preview preview, boolean front) { useCase = preview; frontCamera = front; }
+    void setUseCase(Preview preview, boolean front, Runnable onFirstFrame) {
+        useCase = preview;
+        frontCamera = front;
+        this.onFirstFrame = onFirstFrame;
+    }
     private void provide() {
         SurfaceTexture texture = textureView.getSurfaceTexture();
         if (texture == null || pending == null) return;
@@ -115,6 +120,11 @@ public final class CameraPreview extends FrameLayout implements TextureView.Surf
         retired.add(texture);
         return false; // CameraX owns the buffer until its result callback.
     }
-    @Override public void onSurfaceTextureUpdated(SurfaceTexture texture) {}
+    @Override public void onSurfaceTextureUpdated(SurfaceTexture texture) {
+        if (onFirstFrame == null || !inUse.containsKey(texture)) return;
+        Runnable action = onFirstFrame;
+        onFirstFrame = null;
+        action.run();
+    }
     @Override public boolean performClick() { super.performClick(); return true; }
 }

@@ -54,6 +54,11 @@
     <string name="page_text_size">読み取り結果の文字サイズ　%1$d</string>
     <string name="settings_title">設定</string>
     <string name="result_text_size_label">読み取り結果の文字サイズ</string>
+    <string name="quotation_format">引用の書式</string>
+    <string name="quotation_prefix">全体の前</string>
+    <string name="quotation_suffix">全体の後</string>
+    <string name="quotation_line_prefix">各行の前</string>
+    <string name="quotation_line_suffix">各行の後</string>
     <string name="automatic_model">モデルを自動選択</string>
     <string name="ocr_settings_hint">自動選択をオフにするとモデルを選べます。変更は次の読み取りから適用されます。</string>
     <string name="detection_model">読取モデル</string>

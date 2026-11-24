@@ -1,6 +1,6 @@
-NDLOCR-Lite 1.3.0
+NDLOCR-Lite 2.0.0
 国立国会図書館 / National Diet Library, Japan
-https://github.com/ndl-lab/ndlocr-lite
+https://github.com/ndl-lab/ndlocr-lite/releases/tag/2.0.0
 CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
 
 同梱モデルと文字表は NDLOCR-Lite から取得しました。

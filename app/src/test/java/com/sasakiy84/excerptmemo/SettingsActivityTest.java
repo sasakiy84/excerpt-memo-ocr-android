@@ -1,6 +1,7 @@
 package com.sasakiy84.excerptmemo;
 
 import static org.junit.Assert.*;
+import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Switch;
 import org.junit.Test;
@@ -14,6 +15,27 @@ import org.robolectric.shadows.ShadowLooper;
 @Config(sdk = 36)
 @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
 public final class SettingsActivityTest {
+    @Test public void quotationFieldsKeepTheirExactValuesAfterRecreation() {
+        var controller = Robolectric.buildActivity(SettingsActivity.class).setup();
+        try {
+            var activity = controller.get();
+            int[] ids = {R.id.quotation_prefix, R.id.quotation_suffix, R.id.quotation_line_prefix, R.id.quotation_line_suffix};
+            String[] values = {"「", "」", "> ", "  "};
+            for (int i = 0; i < ids.length; i++) activity.<EditText>findViewById(ids[i]).setText(values[i]);
+
+            controller.recreate();
+            activity = controller.get();
+            assertEquals(new QuotationFormat("「", "」", "> ", "  "), QuotationFormat.load(activity));
+            for (int i = 0; i < ids.length; i++) assertEquals(values[i], activity.<EditText>findViewById(ids[i]).getText().toString());
+
+            activity.<EditText>findViewById(R.id.quotation_line_prefix).setText("");
+            assertEquals("", QuotationFormat.load(activity).linePrefix());
+        } finally {
+            QuotationFormat.preferences(controller.get()).edit().clear().commit();
+            controller.pause().stop().destroy();
+        }
+    }
+
     @Test public void languageTabsKeepIndependentModelsAndSelectedLanguageAfterRecreation() {
         var controller = Robolectric.buildActivity(SettingsActivity.class).setup();
         try {

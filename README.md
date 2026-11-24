@@ -31,10 +31,11 @@
 ## 自分に合わせて設定
 
 読み取り結果の文字サイズは **6〜24** に変更できます。
+「引用の書式」では、コピーする文章全体と各行の前後に付ける記号を指定できます。
 モデルは初期設定では自動選択。自動選択をオフにすると、NDLOCR-Lite または PP-OCRv6 の tiny・small・medium を指定できます。PP-OCRv6 の文字認識モデルと UVDoc の湾曲補正も、日本語・英語それぞれで設定できます。変更は次の読み取りから適用されます。
 
 ## ライセンス・謝辞
 
-文字の読み取りには [NDLOCR-Lite](https://github.com/ndl-lab/ndlocr-lite)（国立国会図書館、CC BY 4.0）、[PP-OCRv6](https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx)、[UVDoc](https://huggingface.co/PaddlePaddle/UVDoc_onnx)（Apache-2.0）を使用しています。画像処理には OpenCV を使用しています。DINOv3 を蒸留した検出モデルには DINOv3 License が適用されます。
+文字の読み取りには [NDLOCR-Lite 2.0.0](https://github.com/ndl-lab/ndlocr-lite/releases/tag/2.0.0)（国立国会図書館、CC BY 4.0）、[PP-OCRv6](https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx)、[UVDoc](https://huggingface.co/PaddlePaddle/UVDoc_onnx)（Apache-2.0）を使用しています。画像処理には OpenCV を使用しています。DINOv3 を蒸留した検出モデルには DINOv3 License が適用されます。
 
 各モデル・ライブラリの出典とライセンスは、アプリの「ライセンス」と [同梱ライセンス](app/src/main/assets/licenses) に収録しています。アプリ独自コードは [MIT License](LICENSE) です。

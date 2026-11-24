@@ -1,6 +1,10 @@
 package com.sasakiy84.excerptmemo;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.InputType;
+import android.text.TextWatcher;
 import android.view.View;
 import android.widget.*;
 import androidx.activity.EdgeToEdge;
@@ -14,9 +18,11 @@ public final class SettingsActivity extends FragmentActivity {
         super.onCreate(state);
         EdgeToEdge.enable(this);
         LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
+        root.setFocusableInTouchMode(true);
         setContentView(root);
+        if (state == null) root.requestFocus();
         ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
-            var bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            var bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.ime());
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom); return insets;
         });
         Toolbar toolbar = new Toolbar(this); toolbar.setTitle(R.string.settings_title);
@@ -41,6 +47,7 @@ public final class SettingsActivity extends FragmentActivity {
             @Override public void onStartTrackingTouch(SeekBar view) {}
             @Override public void onStopTrackingTouch(SeekBar view) {}
         });
+        showQuotationFormat(content);
         modelLanguage = OcrLanguage.from(state != null ? state.getString("modelLanguage", "ja")
                 : getSharedPreferences("extraction", MODE_PRIVATE).getString("language", "ja"));
         label(content, R.string.model_language);
@@ -62,6 +69,48 @@ public final class SettingsActivity extends FragmentActivity {
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putString("modelLanguage", modelLanguage.code); super.onSaveInstanceState(state);
     }
+
+    private void showQuotationFormat(LinearLayout content) {
+        label(content, R.string.quotation_format);
+        var prefs = QuotationFormat.preferences(this);
+        var whole = new LinearLayout(this);
+        content.addView(whole);
+        quotationField(whole, prefs, R.id.quotation_prefix, R.string.quotation_prefix, QuotationFormat.PREFIX);
+        quotationField(whole, prefs, R.id.quotation_suffix, R.string.quotation_suffix, QuotationFormat.SUFFIX);
+        var lines = new LinearLayout(this);
+        content.addView(lines);
+        quotationField(lines, prefs, R.id.quotation_line_prefix, R.string.quotation_line_prefix, QuotationFormat.LINE_PREFIX);
+        quotationField(lines, prefs, R.id.quotation_line_suffix, R.string.quotation_line_suffix, QuotationFormat.LINE_SUFFIX);
+    }
+
+    private void quotationField(LinearLayout row, SharedPreferences prefs, int id, int label, String key) {
+        float density = getResources().getDisplayMetrics().density;
+        var cell = new LinearLayout(this);
+        cell.setOrientation(LinearLayout.VERTICAL);
+        var params = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        if (row.getChildCount() > 0) params.setMarginStart(Math.round(12 * density));
+        row.addView(cell, params);
+
+        var title = new TextView(this);
+        title.setText(label);
+        title.setLabelFor(id);
+        cell.addView(title);
+        var input = new EditText(this);
+        input.setId(id);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        input.setSingleLine(true);
+        input.setMinimumHeight(Math.round(48 * density));
+        input.setText(prefs.getString(key, ""));
+        cell.addView(input);
+        input.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence text, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence text, int start, int before, int count) {
+                prefs.edit().putString(key, text.toString()).apply();
+            }
+            @Override public void afterTextChanged(Editable text) {}
+        });
+    }
+
     private void showModels(LinearLayout content, OcrLanguage language) {
         content.removeAllViews();
         var prefs = OcrSettings.preferences(this, language);

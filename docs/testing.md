@@ -261,3 +261,11 @@ python3 scripts/run-device-tests.py --root-staging --no-ui-automation \
 - strict検証を保持した通常実行でホスト74件成功、外部写真の任意3件スキップ。debug / release lint、debug / Androidテスト / 未署名release APKのビルドが成功。
 - モデル・文字表12ファイルと、v0.9.0未署名release APKの版・SDK・権限・モデル内容・arm64・16KB整列を確認。
 - 言語別設定・文字サイズ6・設定画面再作成のAndroid 16テスト1件は直前の検証結果を使用。端末全15件の通し成功は未確認。署名と公開APKの最終検証はActionsで実行する。
+
+## v0.10.0 リリース前確認
+
+- ホストテスト79件が成功。外部写真を使う任意テスト3件をスキップした。固定したモデルと文字表12ファイル、debug・release の lint、debug・Android テスト・未署名 release の APK ビルドを確認した。
+- ホストでは NDLOCR-Lite 2.0.0 による横書き・縦書き認識、手動の湾曲補正後に行検出が1回だけ走ること、引用の書式の保存と選択範囲のコピーを確認した。設定画面は `app/build/reports/ui/settings.png` で確認した。
+- Android 16 のソフトウェアエミュレーターで、検出モデルを APK から読み込み、旧コピーの削除とカメラ表示後の先読み開始を確認した。引用の設定からクリップボードへのコピーまでを別の診断テスト1件で確認した。
+- `connectedDebugAndroidTest` では、カメラテストが再開済みの Activity を取得する箇所で失敗し、全15件の完了は未確認。物理端末での読み取り時間は未測定。
+- 未署名 release APK の版・SDK・権限・モデル内容・arm64・16 KB アラインメントを確認した。署名と公開 APK の検証は Actions で実行する。

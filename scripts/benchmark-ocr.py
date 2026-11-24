@@ -21,10 +21,11 @@ import onnxruntime as ort
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "app/src/main/assets"
+NDL_DETECTOR = "deim-s-1024x1024-261124.onnx"
 NDL_NAMES = [
-    "parseq-ndl-24x256-30-tiny-189epoch-tegaki3-r8data-202604.onnx",
-    "parseq-ndl-24x384-50-tiny-300epoch-tegaki3-r8data-202604.onnx",
-    "parseq-ndl-24x768-100-tiny-153epoch-tegaki3-r8data-202604.onnx",
+    "parseq-ndl-24x256-30-tiny-499epoch-261124.onnx",
+    "parseq-ndl-24x384-50-tiny-278epoch-261124.onnx",
+    "parseq-ndl-24x768-100-tiny-153epoch-261124.onnx",
 ]
 
 
@@ -112,7 +113,7 @@ class Models:
         return np.clip(output.transpose(1, 2, 0) * 255, 0, 255).astype(np.uint8)
 
     def ndl_detect(self, image):
-        session = self.session("deim-s-1024x1024.onnx")
+        session = self.session(NDL_DETECTOR)
         h, w = image.shape[:2]
         side = max(h, w)
         shape = session.get_inputs()[0].shape
@@ -179,6 +180,8 @@ class Models:
                     break
                 chosen_probs.append(float(probs[len(chosen_probs), value]))
                 text += self.charset[value - 1]
+            for punctuation in "、。":
+                text = text.replace(f" {punctuation}", punctuation).replace(f"{punctuation} ", punctuation)
             self.last_confidence = float(np.exp(np.mean(np.log(np.maximum(chosen_probs, 1e-8))))) if chosen_probs else 0
             if index == 2 or len(text) < [25, 45][index]:
                 return text

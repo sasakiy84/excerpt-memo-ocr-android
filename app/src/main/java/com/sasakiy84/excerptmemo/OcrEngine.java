@@ -13,9 +13,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.FloatBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -30,7 +29,7 @@ import ai.onnxruntime.OrtException;
 import ai.onnxruntime.OrtSession;
 import ai.onnxruntime.TensorInfo;
 
-/** Native ONNX inference; preprocessing and cascade follow NDLOCR-Lite 1.3.0. */
+/** Runs on-device OCR with NDLOCR-Lite and PP-OCRv6. */
 public final class OcrEngine implements AutoCloseable {
     public enum Stage { NDL_DETECTION, NDL_RECOGNITION, PADDLE_DETECTION, PADDLE_TINY_DETECTION, PADDLE_MEDIUM_DETECTION, CONTRAST, PADDLE_RECOGNITION, UVDOC }
     public interface Progress { void update(Stage stage, int done, int total); }
@@ -41,10 +40,10 @@ public final class OcrEngine implements AutoCloseable {
     private PaddleOcr paddle;
     private final PaddleOcr.Policy recognitionPolicy;
     public record PageResult(Bitmap image, List<OcrLine> lines, boolean rectified, String workflow) {}
-    private static final String DETECTOR = "deim-s-1024x1024.onnx";
-    private static final String SHORT = "parseq-ndl-24x256-30-tiny-189epoch-tegaki3-r8data-202604.onnx";
-    private static final String MEDIUM = "parseq-ndl-24x384-50-tiny-300epoch-tegaki3-r8data-202604.onnx";
-    private static final String LONG = "parseq-ndl-24x768-100-tiny-153epoch-tegaki3-r8data-202604.onnx";
+    private static final String DETECTOR = "deim-s-1024x1024-261124.onnx";
+    private static final String SHORT = "parseq-ndl-24x256-30-tiny-499epoch-261124.onnx";
+    private static final String MEDIUM = "parseq-ndl-24x384-50-tiny-278epoch-261124.onnx";
+    private static final String LONG = "parseq-ndl-24x768-100-tiny-153epoch-261124.onnx";
 
     public OcrEngine(Context context) throws Exception { this(context, true); }
 
@@ -61,24 +60,34 @@ public final class OcrEngine implements AutoCloseable {
     }
 
     OrtSession session(String name) throws IOException, OrtException {
-        if (sessions.containsKey(name)) return sessions.get(name);
-        File directory = new File(context.getNoBackupFilesDir(), "models-v1.3.0");
-        if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Cannot create model directory");
-        File model = new File(directory, name);
-        if (!model.isFile()) {
-            File temporary = new File(directory, name + ".tmp");
-            try (InputStream input = context.getAssets().open("models/" + name)) {
-                Files.copy(input, temporary.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            }
-            Files.move(temporary.toPath(), model.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        }
-        try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
+        OrtSession cached = sessions.get(name);
+        if (cached != null) return cached;
+        OrtSession loaded;
+        try (var asset = context.getAssets().openFd("models/" + name);
+             var input = asset.createInputStream();
+             var options = new OrtSession.SessionOptions()) {
             options.setIntraOpNumThreads((name.equals(DETECTOR) || name.equals(PaddleOcr.DETECTOR) || name.equals(PaddleOcr.TINY_DETECTOR) || name.equals(PaddleOcr.MEDIUM_DETECTOR)) ? Math.min(4, Runtime.getRuntime().availableProcessors()) : 2);
             options.setInterOpNumThreads(1);
-            OrtSession loaded = environment.createSession(model.toString(), options);
-            sessions.put(name, loaded);
-            return loaded;
+            // The model is stored uncompressed inside the APK. Map just its byte range.
+            var model = input.getChannel().map(FileChannel.MapMode.READ_ONLY, asset.getStartOffset(), asset.getLength());
+            loaded = environment.createSession(model, options);
         }
+        boolean firstSession = sessions.isEmpty();
+        sessions.put(name, loaded);
+        if (firstSession) removeLegacyModelCopies();
+        return loaded;
+    }
+
+    void prepareDetector() throws IOException, OrtException {
+        session(DETECTOR);
+    }
+
+    private void removeLegacyModelCopies() {
+        File directory = new File(context.getNoBackupFilesDir(), "models-v1.3.0");
+        File[] copies = directory.listFiles((dir, name) -> name.endsWith(".onnx") || name.endsWith(".tmp"));
+        if (copies == null) return;
+        for (File copy : copies) if (copy.isFile()) copy.delete();
+        directory.delete();
     }
 
     private record Detection(Rect box, float confidence, int tier, OcrLine.Kind kind) {}
@@ -122,16 +131,15 @@ public final class OcrEngine implements AutoCloseable {
 
     PageResult readPage(Bitmap page, boolean alreadyRectified, OcrLanguage language, OcrSettings.Selection selected,
                         AtomicBoolean cancelled, Progress progress) throws Exception {
-        checkCancelled(cancelled); progress.update(Stage.NDL_DETECTION, 0, 1);
-        List<Detection> layout = detect(page, session(DETECTOR));
-        List<OcrLine> geometry = layout.stream().map(d -> new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, "", d.kind)).toList();
+        checkCancelled(cancelled);
         if (!selected.automatic() && selected.model() != OcrSettings.Model.NDL) {
             Bitmap target = page;
             try {
                 if (selected.flatten() && !alreadyRectified) {
                     progress.update(Stage.UVDOC, 0, 1); target = flatten(page); checkCancelled(cancelled);
-                    progress.update(Stage.NDL_DETECTION, 0, 1); layout = detect(target, session(DETECTOR));
                 }
+                progress.update(Stage.NDL_DETECTION, 0, 1);
+                List<Detection> layout = detect(target, session(DETECTOR));
                 String detector = switch (selected.model()) {
                     case TINY -> PaddleOcr.TINY_DETECTOR;
                     case MEDIUM -> PaddleOcr.MEDIUM_DETECTOR;
@@ -143,6 +151,9 @@ public final class OcrEngine implements AutoCloseable {
                 return new PageResult(target, lines, target != page, "manual-" + selected.model().name().toLowerCase(java.util.Locale.ROOT));
             } catch (Exception | OutOfMemoryError exception) { if (target != page) target.recycle(); throw exception; }
         }
+        progress.update(Stage.NDL_DETECTION, 0, 1);
+        List<Detection> layout = detect(page, session(DETECTOR));
+        List<OcrLine> geometry = layout.stream().map(d -> new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, "", d.kind)).toList();
         OcrRouting.Route route = !selected.automatic() ? OcrRouting.Route.NDL : alreadyRectified ? OcrRouting.Route.FLATTEN_PADDLE
                 : OcrRouting.choose(geometry, page.getWidth(), page.getHeight(), true);
         if (selected.automatic() && language == OcrLanguage.ENGLISH && route == OcrRouting.Route.NDL) route = OcrRouting.Route.PADDLE;
@@ -388,7 +399,8 @@ public final class OcrEngine implements AutoCloseable {
             if (best > characters.length) break;
             text.append(characters[best - 1]);
         }
-        return text.toString();
+        return text.toString().replace(" 、", "、").replace("、 ", "、")
+                .replace(" 。", "。").replace("。 ", "。");
     }
 
     private static float[] channels(Bitmap bitmap, boolean detector) {

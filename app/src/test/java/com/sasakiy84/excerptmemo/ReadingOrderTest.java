@@ -42,4 +42,12 @@ public final class ReadingOrderTest {
         assertEquals("𠮷", OcrEngine.decode(FloatBuffer.wrap(new float[]{0, 0, 0, 3}), 1, 4,
                 new String[]{"日", "本", "𠮷"}));
     }
+    @Test public void parseqDecoderRemovesSpacesAroundJapanesePunctuation() {
+        String[] characters = {"日", " ", "、", "本", "。"};
+        int[] tokens = {1, 2, 3, 2, 4, 2, 5, 2, 0};
+        int classes = characters.length + 1;
+        FloatBuffer logits = FloatBuffer.allocate(tokens.length * classes);
+        for (int i = 0; i < tokens.length; i++) logits.put(i * classes + tokens[i], 1);
+        assertEquals("日、本。", OcrEngine.decode(logits, tokens.length, classes, characters));
+    }
 }

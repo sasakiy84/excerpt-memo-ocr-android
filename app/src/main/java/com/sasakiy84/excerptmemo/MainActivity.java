@@ -38,6 +38,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.ViewModelProvider;
 import java.io.File;
 import java.io.InputStream;
@@ -254,7 +255,11 @@ public final class MainActivity extends FragmentActivity {
                         .setTargetRotation(preview.getDisplay().getRotation()).build();
                 CameraSelector selector = cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)
                         ? CameraSelector.DEFAULT_BACK_CAMERA : CameraSelector.DEFAULT_FRONT_CAMERA;
-                preview.setUseCase(cameraPreview, selector == CameraSelector.DEFAULT_FRONT_CAMERA);
+                preview.setUseCase(cameraPreview, selector == CameraSelector.DEFAULT_FRONT_CAMERA, () -> {
+                    if (!capturing && getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.RESUMED)) {
+                        document.prepareOcr();
+                    }
+                });
                 cameraPreview.setSurfaceProvider(preview.getSurfaceProvider());
                 cameraProvider.unbindAll();
                 Camera camera = cameraProvider.bindToLifecycle(this, selector, cameraPreview, imageCapture);
@@ -269,6 +274,7 @@ public final class MainActivity extends FragmentActivity {
                 render();
             } catch (Exception exception) {
                 imageCapture = null;
+                preview.setUseCase(null, false, null);
                 Log.e("ExcerptMemo", "Camera startup failed", exception);
                 Toast.makeText(MainActivity.this, R.string.camera_unavailable, Toast.LENGTH_LONG).show();
             }
@@ -276,7 +282,9 @@ public final class MainActivity extends FragmentActivity {
     }
 
     private void stopCamera() {
-        if (cameraProvider != null && imageCapture != null) cameraProvider.unbindAll();
+        if (imageCapture == null) return;
+        preview.setUseCase(null, false, null);
+        if (cameraProvider != null) cameraProvider.unbindAll();
         imageCapture = null;
     }
 

@@ -16,6 +16,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +52,7 @@ public final class DocumentViewModel extends AndroidViewModel {
     private final Handler main = new Handler(Looper.getMainLooper());
     private AtomicBoolean cancellation = new AtomicBoolean();
     private OcrEngine engine;
+    private boolean detectorPreparationRequested;
 
     public DocumentViewModel(Application application) {
         super(application);
@@ -146,7 +148,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                 Bitmap decoded = decode(ImageDecoder.createSource(getApplication().getContentResolver(), uri));
                 if (token.get()) return;
                 writeImage(decoded);
-                writeBitmap(decoded, sourceFile());
+                copySavedPage(sourceFile());
                 new AtomicFile(rectifiedFile()).delete();
                 main.post(() -> {
                     if (token.get()) return;
@@ -170,6 +172,20 @@ public final class DocumentViewModel extends AndroidViewModel {
             if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) throw new java.io.IOException("Cannot save image");
             target.finishWrite(stream);
         } catch (Exception exception) { target.failWrite(stream); throw exception; }
+    }
+
+    private void copySavedPage(File destination) throws IOException {
+        AtomicFile target = new AtomicFile(destination);
+        try (var input = new AtomicFile(imageFile()).openRead()) {
+            var output = target.startWrite();
+            try {
+                input.transferTo(output);
+                target.finishWrite(output);
+            } catch (IOException | RuntimeException | Error exception) {
+                target.failWrite(output);
+                throw exception;
+            }
+        }
     }
 
     public void applyImageEdit(float degrees, android.graphics.RectF crop) {
@@ -215,6 +231,24 @@ public final class DocumentViewModel extends AndroidViewModel {
         if (page != null) read(); else changed();
     }
 
+    void prepareOcr() {
+        if (busy || page != null || detectorPreparationRequested) return;
+        detectorPreparationRequested = true;
+        worker.execute(() -> {
+            try {
+                ocrEngine().prepareDetector();
+            } catch (Exception | OutOfMemoryError exception) {
+                Log.w("ExcerptMemo", "OCR preparation failed", exception);
+                main.post(() -> detectorPreparationRequested = false);
+            }
+        });
+    }
+
+    private OcrEngine ocrEngine() throws Exception {
+        if (engine == null) engine = new OcrEngine(getApplication());
+        return engine;
+    }
+
     public void read() {
         if (busy || page == null) return;
         AtomicBoolean token = new AtomicBoolean(); cancellation = token;
@@ -228,8 +262,7 @@ public final class DocumentViewModel extends AndroidViewModel {
         processingSeconds = -1; busy = true; status = getApplication().getString(R.string.loading_model); changed();
         worker.execute(() -> {
             try {
-                if (engine == null) engine = new OcrEngine(getApplication());
-                OcrEngine.PageResult recognized = engine.readPage(source, alreadyRectified, selectedLanguage, selectedModels, token, (stage, done, total) -> main.post(() -> {
+                OcrEngine.PageResult recognized = ocrEngine().readPage(source, alreadyRectified, selectedLanguage, selectedModels, token, (stage, done, total) -> main.post(() -> {
                     if (token.get()) return;
                     int label = switch (stage) {
                         case NDL_DETECTION -> R.string.ndl_detecting;
@@ -247,7 +280,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                 }));
                 if (token.get()) { if (recognized.image() != source) recognized.image().recycle(); return; }
                 if (recognized.image() != source) writeImage(recognized.image());
-                if (recognized.rectified()) writeBitmap(recognized.image(), rectifiedFile());
+                if (recognized.rectified()) copySavedPage(rectifiedFile());
                 double elapsed = (System.nanoTime() - started) / 1_000_000_000.0;
                 main.post(() -> {
                     if (token.get()) { if (recognized.image() != source) recognized.image().recycle(); return; }
@@ -376,7 +409,8 @@ public final class DocumentViewModel extends AndroidViewModel {
         for (int i = 0; i < lines.size(); i++) {
             if (geometry.starts[i] < end && geometry.starts[i] + lines.get(i).text().length() > start) chosen.add(lines.get(i));
         }
-        return copied + new PageReferences(allLines, page == null ? 1 : page.getWidth()).suffix(chosen);
+        String pages = new PageReferences(allLines, page == null ? 1 : page.getWidth()).suffix(chosen);
+        return QuotationFormat.load(getApplication()).format(copied) + pages;
     }
 
     public java.util.concurrent.Future<?> closePage() {

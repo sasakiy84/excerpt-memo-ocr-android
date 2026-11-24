@@ -19,7 +19,7 @@ class Recording:
 class Layout(s.Assets):
     def session(self,name):
         inner=super().session(name)
-        return Recording(inner,self) if name=='deim-s-1024x1024.onnx' else inner
+        return Recording(inner,self) if name==b.NDL_DETECTOR else inner
     def masked(self,image):
         labels,boxes,scores,*rest=self.last_layout;side=max(image.shape[:2]);result=[]
         for label,box,score in zip(labels.reshape(-1),boxes.reshape(-1,4),scores.reshape(-1)):

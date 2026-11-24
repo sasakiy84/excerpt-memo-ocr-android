@@ -6,6 +6,8 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Rect;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,6 +58,37 @@ public final class OcrHostTest {
             blank.eraseColor(Color.WHITE);
             assertTrue(engine.read(blank, new Rect(0, 0, 800, 800), new AtomicBoolean(), (stage, done, total) -> {}).isEmpty());
             blank.recycle();
+        }
+    }
+
+    @Test public void detectorLoadsFromAssetsAndRemovesLegacyModelCopies() throws Exception {
+        var context = RuntimeEnvironment.getApplication();
+        var legacy = context.getNoBackupFilesDir().toPath().resolve("models-v1.3.0");
+        Files.createDirectories(legacy);
+        Files.write(legacy.resolve("deim-s-1024x1024.onnx"), new byte[]{0});
+
+        try (var engine = new OcrEngine(context)) {
+            engine.prepareDetector();
+            assertFalse(Files.exists(legacy));
+        }
+    }
+
+    @Test public void manualPaddleDetectsLayoutOnceAfterCorrection() throws Exception {
+        var page = fixture("horizontal.png");
+        var stages = new ArrayList<OcrEngine.Stage>();
+        try (var engine = new OcrEngine(RuntimeEnvironment.getApplication())) {
+            var selection = new OcrSettings.Selection(false, OcrSettings.Model.TINY, false, true);
+            var result = engine.readPage(page, false, OcrLanguage.JAPANESE, selection, new AtomicBoolean(),
+                    (stage, done, total) -> stages.add(stage));
+            try {
+                assertTrue(result.rectified());
+                assertEquals(OcrEngine.Stage.UVDOC, stages.get(0));
+                assertEquals(1, stages.stream().filter(stage -> stage == OcrEngine.Stage.NDL_DETECTION).count());
+            } finally {
+                if (result.image() != page) result.image().recycle();
+            }
+        } finally {
+            page.recycle();
         }
     }
 }
