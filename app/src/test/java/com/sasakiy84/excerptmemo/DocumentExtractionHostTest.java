@@ -188,6 +188,37 @@ public final class DocumentExtractionHostTest {
         } finally { close(controller); }
     }
 
+    @Test public void filteringAndCopyingFollowTheRecognizedOrder() throws Exception {
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        try {
+            var model = document(controller.get());
+            var right = new OcrLine(200, 400, 220, 600, "右の本文");
+            var left = new OcrLine(100, 50, 120, 250, "左の本文");
+            var ruby = new OcrLine(230, 420, 240, 460, "みぎ", OcrLine.Kind.RUBY);
+            model.allLines = List.of(right, ruby, left);
+            model.setInclusions(false, true, false);
+            assertEquals(List.of(right, ruby, left), model.geometry().lines);
+            assertEquals("右の本文\nみぎ\n左の本文", model.text);
+            model.setInclusions(false, false, false);
+            assertEquals(List.of(right, left), model.geometry().lines);
+            assertEquals("右の本文\n左の本文", model.forClipboard(0, 0));
+        } finally { close(controller); }
+    }
+
+    @Test public void legacyOffsetsFollowTheSameCharactersAfterReordering() throws Exception {
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        try {
+            var model = document(controller.get());
+            var right = new OcrLine(200, 150, 220, 350, "右の本文");
+            var left = new OcrLine(100, 50, 120, 250, "左の本文");
+            model.allLines = List.of(right, left);
+            var saved = new org.json.JSONObject().put("selectionStart", 5).put("selectionEnd", 8).put("text", "右側の本");
+            model.restoreSelection(saved, List.of(left, right), false);
+            assertEquals("右の本", model.geometry().text.substring(model.selectionStart, model.selectionEnd));
+            assertEquals("右側の本", model.text);
+        } finally { close(controller); }
+    }
+
     @Test public void openingImageAutomaticallyRunsActualBundledOcr() throws Exception {
         var controller = Robolectric.buildActivity(MainActivity.class).setup();
         try {

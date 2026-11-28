@@ -34,12 +34,23 @@ final class PageReferences {
     float gutter() { return (folios.get(0).x + folios.get(1).x) / 2; }
 
     List<OcrLine> order(List<OcrLine> lines) {
-        if (!spread()) return ReadingOrder.sort(lines);
+        return order(lines, false);
+    }
+
+    List<OcrLine> legacyOrder(List<OcrLine> lines) {
+        return order(lines, true);
+    }
+
+    private List<OcrLine> order(List<OcrLine> lines, boolean legacy) {
+        if (!spread()) return legacy ? ReadingOrder.legacySort(lines) : ReadingOrder.sort(lines);
         List<OcrLine> left = new ArrayList<>(), right = new ArrayList<>();
         for (OcrLine line : lines) (line.centerX() < gutter() ? left : right).add(line);
         // The printed folios determine the page order, including right-bound books.
-        List<OcrLine> first = ReadingOrder.sort(folios.get(0).number < folios.get(1).number ? left : right);
-        List<OcrLine> second = ReadingOrder.sort(folios.get(0).number < folios.get(1).number ? right : left);
+        boolean leftFirst = folios.get(0).number < folios.get(1).number;
+        List<OcrLine> firstPage = leftFirst ? left : right;
+        List<OcrLine> secondPage = leftFirst ? right : left;
+        List<OcrLine> first = legacy ? ReadingOrder.legacySort(firstPage) : ReadingOrder.sort(firstPage);
+        List<OcrLine> second = legacy ? ReadingOrder.legacySort(secondPage) : ReadingOrder.sort(secondPage);
         first.addAll(second);
         return first;
     }

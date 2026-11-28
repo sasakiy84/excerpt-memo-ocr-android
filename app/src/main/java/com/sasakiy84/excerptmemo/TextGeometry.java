@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Maps grapheme boundaries to the line boxes supplied by PARSeq, which has no character boxes. */
+/** Estimates grapheme positions inside the OCR line boxes. */
 final class TextGeometry {
     final List<OcrLine> lines;
     final String text;
@@ -58,6 +58,7 @@ final class TextGeometry {
 
     int lineAt(int offset, boolean end) {
         for (int i = 0; i < lines.size(); i++) {
+            if (end && i > 0 && offset == starts[i]) return i - 1;
             int limit = starts[i] + lines.get(i).text().length();
             if (offset < limit || (end && offset == limit)) return i;
         }
@@ -81,6 +82,17 @@ final class TextGeometry {
 
     int next(int offset) { return snap(Math.min(length(), offset + 1), true); }
     int previous(int offset) { return snap(Math.max(0, offset - 1), false); }
+
+    int nextCharacterEnd(int start) {
+        if (start >= length()) return length();
+        return next(Math.max(start, starts[lineAt(start, false)]));
+    }
+
+    int previousCharacterStart(int end) {
+        if (end <= 0) return 0;
+        int line = lineAt(end, true);
+        return previous(Math.min(end, starts[line] + lines.get(line).text().length()));
+    }
 
     private float fraction(int line, int offset) {
         int local = offset - starts[line];
@@ -168,8 +180,13 @@ final class TextGeometry {
 
     int offsetOnLine(int index, float x, float y, boolean boundary) {
         OcrLine line = lines.get(index);
-        float position = line.vertical() ? (y - line.top()) / (line.bottom() - line.top())
-                : (x - line.left()) / (line.right() - line.left());
+        if (line.vertical()) {
+            int count = boundaries[index].length - 1;
+            float character = verticalFraction(line, y) * count;
+            int chosen = boundary ? Math.round(character) : Math.min(Math.max(0, count - 1), (int) character);
+            return starts[index] + boundaries[index][chosen];
+        }
+        float position = (x - line.left()) / (line.right() - line.left());
         float[] points = positions[index];
         int chosen = 0;
         if (boundary) {

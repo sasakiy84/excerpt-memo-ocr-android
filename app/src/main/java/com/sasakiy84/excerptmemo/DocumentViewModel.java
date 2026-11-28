@@ -42,6 +42,7 @@ public final class DocumentViewModel extends AndroidViewModel {
     public List<OcrLine> allLines = List.of();
     private Map<OcrLine, VerticalInkGeometry.Stripe> verticalStripes = Map.of();
     private TextGeometry cachedGeometry = new TextGeometry(lines);
+    private float pageGutter = Float.NaN;
     public int selectionStart, selectionEnd;
     public OcrLanguage language;
     public boolean includePageNumbers, includeRuby, includeTables;
@@ -84,9 +85,12 @@ public final class DocumentViewModel extends AndroidViewModel {
                                 OcrLine.Kind.valueOf(line.optString(5, "TEXT")), line.optBoolean(6, false)));
                     }
                     var restoredStripes = VerticalInkGeometry.estimate(restored, restoredLines);
+                    boolean ordered = json.optBoolean("orderedOcrLines");
+                    var references = new PageReferences(restoredLines, restored.getWidth());
+                    List<OcrLine> ocrOrder = ordered ? restoredLines : references.order(restoredLines);
                     main.post(() -> {
                         language = OcrLanguage.from(json.optString("language", "ja"));
-                        page = restored; sourcePage = source; allLines = restoredLines;
+                        page = restored; sourcePage = source; allLines = ocrOrder;
                         verticalStripes = restoredStripes;
                         pageRectified = json.optBoolean("pageRectified");
                         processingSeconds = json.optDouble("processingSeconds", -1);
@@ -98,21 +102,9 @@ public final class DocumentViewModel extends AndroidViewModel {
                         editAngle = (float) json.optDouble("editAngle", 0);
                         JSONArray savedCrop = json.optJSONArray("editCrop");
                         if (savedCrop != null && savedCrop.length() == 4) editCrop = new android.graphics.RectF((float)savedCrop.optDouble(0), (float)savedCrop.optDouble(1), (float)savedCrop.optDouble(2), (float)savedCrop.optDouble(3));
-                        rebuildLines(false);
-                        if (json.has("selectionStart")) {
-                            TextGeometry geometry = geometry();
-                            selectionStart = geometry.snap(json.optInt("selectionStart"), false);
-                            selectionEnd = Math.max(selectionStart, geometry.snap(json.optInt("selectionEnd"), true));
-                        }
+                        List<OcrLine> visible = visibleLines(restoredLines);
+                        restoreSelection(json, ordered ? visible : references.legacyOrder(visible), ordered);
                         textPanelFraction = (float) json.optDouble("textPanelFraction", .28);
-                        String savedText = json.optString("text", geometry().text.substring(selectionStart, selectionEnd));
-                        boolean migrateParagraphs = !json.optBoolean("paragraphText") && savedText.equals(geometry().text.substring(selectionStart, selectionEnd));
-                        if (migrateParagraphs) setExcerpt(); else { text = savedText; resetTextOrigins(); }
-                        JSONArray origins = json.optJSONArray("textOrigins");
-                        if (!migrateParagraphs && origins != null && origins.length() == text.length()) {
-                            textOrigins = new int[text.length()];
-                            for (int i = 0; i < textOrigins.length; i++) textOrigins[i] = origins.optInt(i, -1);
-                        }
                         textMode = json.optBoolean("textMode");
                         busy = false; changed();
                     });
@@ -121,6 +113,39 @@ public final class DocumentViewModel extends AndroidViewModel {
             } catch (Exception exception) { Log.w("ExcerptMemo", "Cannot restore last page", exception); }
             main.post(() -> { busy = false; changed(); });
         });
+    }
+
+    void restoreSelection(JSONObject saved, List<OcrLine> previous, boolean ordered) {
+        lines = previous;
+        TextGeometry old = geometry();
+        selectionStart = old.snap(saved.optInt("selectionStart", 0), false);
+        selectionEnd = Math.max(selectionStart, old.snap(saved.optInt("selectionEnd", old.length()), true));
+        String raw = old.text.substring(selectionStart, selectionEnd);
+        String previousText = saved.optString("text", raw);
+        boolean generated = !saved.has("text") || !ordered && previousText.equals(saved.optBoolean("paragraphText")
+                ? ParagraphText.extractLegacy(previous, selectionStart, selectionEnd).text() : raw);
+        rebuildLines(true);
+        if (generated) return;
+
+        text = previousText;
+        JSONArray origins = saved.optJSONArray("textOrigins");
+        if (origins == null || origins.length() != text.length()) {
+            resetTextOrigins();
+            return;
+        }
+        textOrigins = new int[text.length()];
+        TextGeometry current = geometry();
+        int[] currentIndexes = new int[previous.size()];
+        if (!ordered) for (int i = 0; i < previous.size(); i++) currentIndexes[i] = lines.indexOf(previous.get(i));
+        for (int i = 0; i < textOrigins.length; i++) {
+            int origin = origins.optInt(i, -1);
+            if (!ordered && origin >= 0 && origin < old.length()) {
+                int prior = old.lineAt(origin + 1, true);
+                int index = currentIndexes[prior];
+                origin = index < 0 ? -1 : current.starts[index] + origin - old.starts[prior];
+            }
+            textOrigins[i] = origin < current.length() ? origin : -1;
+        }
     }
 
     private File imageFile() { return new File(getApplication().getFilesDir(), "page.png"); }
@@ -353,14 +378,9 @@ public final class DocumentViewModel extends AndroidViewModel {
         TextGeometry old = geometry();
         int oldStart = selectionStart, oldEnd = selectionEnd;
         boolean all = !preserve || (oldStart == 0 && oldEnd == old.length());
-        List<OcrLine> visible = new ArrayList<>();
-        for (OcrLine line : allLines) {
-            if (line.kind() == OcrLine.Kind.PAGE_NUMBER && !includePageNumbers) continue;
-            if (line.kind() == OcrLine.Kind.RUBY && !includeRuby) continue;
-            if (line.kind() == OcrLine.Kind.TABLE && !includeTables) continue;
-            visible.add(line);
-        }
-        lines = new PageReferences(allLines, page == null ? 1 : page.getWidth()).order(visible);
+        lines = visibleLines(allLines);
+        PageReferences references = new PageReferences(allLines, page == null ? 1 : page.getWidth());
+        pageGutter = references.spread() ? references.gutter() : Float.NaN;
         TextGeometry geometry = geometry();
         selectionStart = 0; selectionEnd = all ? geometry.length() : 0;
         if (!all) {
@@ -378,13 +398,24 @@ public final class DocumentViewModel extends AndroidViewModel {
         setExcerpt();
     }
 
+    private List<OcrLine> visibleLines(List<OcrLine> recognized) {
+        List<OcrLine> visible = new ArrayList<>();
+        for (OcrLine line : recognized) {
+            if (line.kind() == OcrLine.Kind.PAGE_NUMBER && !includePageNumbers) continue;
+            if (line.kind() == OcrLine.Kind.RUBY && !includeRuby) continue;
+            if (line.kind() == OcrLine.Kind.TABLE && !includeTables) continue;
+            visible.add(line);
+        }
+        return visible;
+    }
+
     TextGeometry geometry() {
         if (cachedGeometry.lines != lines) cachedGeometry = new TextGeometry(lines, verticalStripes);
         return cachedGeometry;
     }
 
     private void setExcerpt() {
-        ParagraphText.Result excerpt = ParagraphText.extract(lines, selectionStart, selectionEnd);
+        ParagraphText.Result excerpt = ParagraphText.extract(lines, selectionStart, selectionEnd, verticalStripes, pageGutter);
         text = excerpt.text(); textOrigins = excerpt.origins();
     }
 
@@ -450,7 +481,8 @@ public final class DocumentViewModel extends AndroidViewModel {
             for (OcrLine line : allLines) array.put(new JSONArray().put(line.left()).put(line.top()).put(line.right()).put(line.bottom()).put(line.text()).put(line.kind().name()).put(line.forceHorizontal()));
             JSONObject state = new JSONObject().put("processingSeconds", processingSeconds).put("language", language.code).put("lines", array).put("text", text).put("textMode", textMode)
                     .put("selectionStart", selectionStart).put("selectionEnd", selectionEnd)
-                    .put("paragraphText", true).put("textPanelFraction", textPanelFraction).put("pageRectified", pageRectified)
+                    .put("paragraphText", true).put("orderedOcrLines", true)
+                    .put("textPanelFraction", textPanelFraction).put("pageRectified", pageRectified)
                     .put("editRectified", editRectified).put("rectifiedEditAngle", rectifiedEditAngle)
                     .put("rectifiedEditCrop", new JSONArray().put(rectifiedEditCrop.left).put(rectifiedEditCrop.top).put(rectifiedEditCrop.right).put(rectifiedEditCrop.bottom))
                     .put("editAngle", editAngle).put("editCrop", new JSONArray().put(editCrop.left).put(editCrop.top).put(editCrop.right).put(editCrop.bottom));

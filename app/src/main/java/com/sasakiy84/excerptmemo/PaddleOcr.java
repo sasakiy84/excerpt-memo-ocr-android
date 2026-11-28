@@ -122,6 +122,11 @@ final class PaddleOcr {
 
     List<OcrLine> read(Bitmap image, AtomicBoolean cancelled, OcrEngine.Progress progress,
                        boolean horizontalOnly, String detectorModel, Policy chosenPolicy) throws Exception {
+        return ReadingOrder.sort(readLines(image, cancelled, progress, horizontalOnly, detectorModel, chosenPolicy));
+    }
+
+    List<OcrLine> readLines(Bitmap image, AtomicBoolean cancelled, OcrEngine.Progress progress,
+                            boolean horizontalOnly, String detectorModel, Policy chosenPolicy) throws Exception {
         ensureOpenCv();
         OcrEngine.Stage detectionStage = detectorModel.equals(TINY_DETECTOR) ? OcrEngine.Stage.PADDLE_TINY_DETECTION
                 : detectorModel.equals(MEDIUM_DETECTOR) ? OcrEngine.Stage.PADDLE_MEDIUM_DETECTION : OcrEngine.Stage.PADDLE_DETECTION;
@@ -152,7 +157,7 @@ final class PaddleOcr {
                 progress.update(OcrEngine.Stage.PADDLE_RECOGNITION, ++done, boxes.size());
             }
         } finally { source.release(); }
-        return ReadingOrder.sort(lines);
+        return lines;
     }
 
     private List<Point[]> detect(Bitmap image, String detectorModel) throws Exception {

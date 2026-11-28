@@ -2,6 +2,7 @@ package com.sasakiy84.excerptmemo;
 
 import static org.junit.Assert.*;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 
 public final class ParagraphTextTest {
@@ -49,6 +50,15 @@ public final class ParagraphTextTest {
     }
     @Test public void verticalShortColumnEndsParagraph() {
         assertEquals("あいうえおかきくけこさしすせそ\nたちつてとなにぬねの", joined(List.of(v(0,200,100,"あいうえおかきくけこ"), v(0,100,70,"さしすせそ"), v(0,200,40,"たちつてとなにぬねの"))));
+    }
+    @Test public void overlappingSlantedColumnsJoinWithinThePage() {
+        var right = new OcrLine(100, 0, 165, 200, "あいうえおかきくけこ");
+        var left = new OcrLine(70, 0, 135, 200, "さしすせそたちつてと");
+        var stripes = Map.of(right, new VerticalInkGeometry.Stripe(110, 150, 10),
+                left, new VerticalInkGeometry.Stripe(80, 120, 10));
+        var lines = List.of(right, left);
+        assertEquals(right.text() + left.text(), ParagraphText.extract(lines, 0, 21, stripes, Float.NaN).text());
+        assertEquals(right.text() + "\n" + left.text(), ParagraphText.extract(lines, 0, 21, stripes, 115).text());
     }
     @Test public void englishWordsKeepTheirSpaceWhenLinesJoin() {
         assertEquals("Read the original document carefully.", joined(List.of(h(0,200,0,"Read the original"), h(0,200,30,"document carefully."))));

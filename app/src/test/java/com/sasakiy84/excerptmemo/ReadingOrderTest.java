@@ -19,6 +19,14 @@ public final class ReadingOrderTest {
         var right = new OcrLine(100, 10, 130, 300, "右の列");
         assertEquals("右の列\n左の列", ReadingOrder.text(ReadingOrder.sort(List.of(left, right))));
     }
+    @Test public void staggeredVerticalColumnsAndHorizontalAnnotationsKeepTheBodyOrder() {
+        var left = new OcrLine(10, 10, 30, 100, "左の列");
+        var right = new OcrLine(70, 200, 90, 300, "右の列");
+        var ruby = new OcrLine(35, 30, 62, 40, "ひだり", OcrLine.Kind.RUBY);
+        var folio = new OcrLine(35, 350, 62, 360, "51", OcrLine.Kind.PAGE_NUMBER);
+        var lines = ReadingOrder.sort(List.of(left, folio, ruby, right));
+        assertTrue(lines.indexOf(right) < lines.indexOf(left));
+    }
     @Test public void horizontalNewspaperColumnsStayTogether() {
         var a = new OcrLine(10, 10, 200, 30, "左上");
         var b = new OcrLine(10, 40, 200, 60, "左下");

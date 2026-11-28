@@ -116,7 +116,7 @@ public final class OcrEngine implements AutoCloseable {
                 progress.update(Stage.NDL_RECOGNITION, ++done, detections.size());
             }
             checkCancelled(cancelled);
-            return ReadingOrder.sort(lines);
+            return new PageReferences(lines, page.getWidth()).order(lines);
         } finally { if (crop != page) crop.recycle(); }
     }
 
@@ -193,7 +193,7 @@ public final class OcrEngine implements AutoCloseable {
                 progress.update(stage, ++done, layout.size());
             }
             checkCancelled(cancelled);
-            return new PageResult(target, ReadingOrder.sort(lines), target != page,
+            return new PageResult(target, new PageReferences(lines, target.getWidth()).order(lines), target != page,
                     route != OcrRouting.Route.FLATTEN_PADDLE ? "ndl"
                     : alreadyRectified ? "ndl-layout-paddle" : "uvdoc-ndl-layout-paddle");
         } catch (Exception | OutOfMemoryError exception) { if (target != page) target.recycle(); throw exception; }
@@ -207,7 +207,7 @@ public final class OcrEngine implements AutoCloseable {
 
     private List<OcrLine> readPaddle(Bitmap page, List<Detection> layout, AtomicBoolean cancelled,
                                      Progress progress, OcrLanguage language, String detector, PaddleOcr.Policy policy) throws Exception {
-        List<OcrLine> recognized = paddle().read(page, cancelled, progress, language == OcrLanguage.ENGLISH, detector, policy);
+        List<OcrLine> recognized = paddle().readLines(page, cancelled, progress, language == OcrLanguage.ENGLISH, detector, policy);
         List<OcrLine> geometry = layout.stream().map(d -> new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, "", d.kind)).toList();
         List<OcrLine> classified = new ArrayList<>();
         for (OcrLine line : recognized) {
@@ -231,7 +231,7 @@ public final class OcrEngine implements AutoCloseable {
             progress.update(Stage.NDL_RECOGNITION, 1, 1);
         }
         checkCancelled(cancelled);
-        return ReadingOrder.sort(classified);
+        return new PageReferences(classified, page.getWidth()).order(classified);
     }
 
     private PaddleOcr paddle() throws Exception {

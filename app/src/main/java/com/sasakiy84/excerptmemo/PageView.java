@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PointF;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Bundle;
 import android.util.AttributeSet;
@@ -58,6 +59,7 @@ public final class PageView extends View {
         geometry = text;
         selectionStart = geometry.snap(start, false);
         selectionEnd = geometry.snap(end, true);
+        updateGestureExclusion();
         invalidate();
     }
 
@@ -96,8 +98,36 @@ public final class PageView extends View {
         return point;
     }
 
+    private Rect handleTouchBounds(boolean end) {
+        PointF center = handleCenter(end);
+        float radius = dp(24);
+        return new Rect(Math.max(0, (int) Math.floor(center.x - radius)),
+                Math.max(0, (int) Math.floor(center.y - radius)),
+                Math.min(getWidth(), (int) Math.ceil(center.x + radius)),
+                Math.min(getHeight(), (int) Math.ceil(center.y + radius)));
+    }
+
+    private void updateGestureExclusion() {
+        // Android decides whether the edge swipe is Back before delivering ACTION_DOWN.
+        List<Rect> bounds = bitmap != null && selectionStart < selectionEnd && isEnabled()
+                && getWidth() > 0 && getHeight() > 0
+                ? List.of(handleTouchBounds(false), handleTouchBounds(true)) : List.of();
+        if (!getSystemGestureExclusionRects().equals(bounds)) setSystemGestureExclusionRects(bounds);
+    }
+
+    @Override public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        updateGestureExclusion();
+    }
+
+    @Override protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        updateGestureExclusion();
+    }
+
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        updateGestureExclusion();
         canvas.drawColor(androidx.core.content.ContextCompat.getColor(getContext(), R.color.excerpt_canvas));
         if (bitmap == null) return;
         canvas.save(); canvas.translate(originX(), originY()); canvas.scale(scale(), scale());
@@ -134,7 +164,7 @@ public final class PageView extends View {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN -> {
                 requestFocus();
-                getParent().requestDisallowInterceptTouchEvent(true);
+                if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
                 multiplePointers = false; dragged = false; activeHandle = 0; touchedHandleKnob = false; handleColumn = -1;
                 downX = event.getX(); downY = event.getY();
                 if (selectionStart < selectionEnd) {
@@ -166,10 +196,9 @@ public final class PageView extends View {
                     panX += focusX - lastFocusX; panY += focusY - lastFocusY;
                     lastFocusX = focusX; lastFocusY = focusY;
                     constrainPan(); invalidate();
-                } else if (!multiplePointers && Math.hypot(event.getX() - downX, event.getY() - downY) > dp(4)) {
-                    dragged = true;
-                    moveSelection(event.getX(), event.getY());
-                    if (isHardwareAccelerated()) {
+                } else if (!multiplePointers && moved(event)) {
+                    dragged |= moveSelection(event.getX(), event.getY()) || beyondTouchSlop(event);
+                    if (dragged && isHardwareAccelerated()) {
                         if (magnifier == null) magnifier = new Magnifier.Builder(this).build();
                         magnifier.show(event.getX() - (activeHandle == 0 ? 0 : handleDeltaX),
                                 event.getY() - (activeHandle == 0 ? 0 : handleDeltaY));
@@ -178,19 +207,31 @@ public final class PageView extends View {
             }
             case MotionEvent.ACTION_UP -> {
                 if (!multiplePointers && !geometry.lines.isEmpty()) {
+                    if (dragged || moved(event)) {
+                        dragged |= moveSelection(event.getX(), event.getY()) || beyondTouchSlop(event);
+                    }
                     if (!dragged && !touchedHandleKnob) { selectionStart = anchor; selectionEnd = geometry.next(anchor); notifySelection(); }
                     performClick(); invalidate();
                 }
-                dismissMagnifier(); getParent().requestDisallowInterceptTouchEvent(false);
+                finishTouch();
             }
-            case MotionEvent.ACTION_CANCEL -> { dismissMagnifier(); getParent().requestDisallowInterceptTouchEvent(false); }
+            case MotionEvent.ACTION_CANCEL -> finishTouch();
             default -> { }
         }
         return true;
     }
 
-    private void moveSelection(float x, float y) {
-        if (geometry.lines.isEmpty()) return;
+    private boolean beyondTouchSlop(MotionEvent event) {
+        return Math.hypot(event.getX() - downX, event.getY() - downY) > dp(4);
+    }
+
+    private boolean moved(MotionEvent event) {
+        return activeHandle != 0 ? event.getX() != downX || event.getY() != downY : beyondTouchSlop(event);
+    }
+
+    private boolean moveSelection(float x, float y) {
+        if (geometry.lines.isEmpty()) return false;
+        int start = selectionStart, end = selectionEnd;
         PointF point = pagePoint(x - (activeHandle == 0 ? 0 : handleDeltaX), y - (activeHandle == 0 ? 0 : handleDeltaY));
         // Travelling straight down a tilted column should only change the character boundary.
         OcrLine column = handleColumn >= 0 ? geometry.lines.get(handleColumn) : null;
@@ -198,15 +239,29 @@ public final class PageView extends View {
                 && point.y >= column.top() && point.y <= column.bottom();
         int offset = followingColumn ? geometry.offsetOnLine(handleColumn, point.x, point.y, true)
                 : geometry.nearest(point.x, point.y, activeHandle != 0);
-        if (activeHandle == 1) selectionStart = Math.min(offset, geometry.previous(selectionEnd));
-        else if (activeHandle == 2) selectionEnd = Math.max(offset, geometry.next(selectionStart));
+        if (activeHandle == 1) selectionStart = Math.min(offset, geometry.previousCharacterStart(selectionEnd));
+        else if (activeHandle == 2) selectionEnd = Math.max(offset, geometry.nextCharacterEnd(selectionStart));
         else { selectionStart = Math.min(anchor, offset); selectionEnd = geometry.next(Math.max(anchor, offset)); }
+        if (start == selectionStart && end == selectionEnd) return false;
         notifySelection(); invalidate();
+        return true;
     }
 
-    private void notifySelection() { if (listener != null) listener.changed(selectionStart, selectionEnd); }
+    private void notifySelection() {
+        updateGestureExclusion();
+        if (listener != null) listener.changed(selectionStart, selectionEnd);
+    }
     private void dismissMagnifier() { if (magnifier != null) magnifier.dismiss(); }
-    @Override protected void onDetachedFromWindow() { dismissMagnifier(); super.onDetachedFromWindow(); }
+    private void finishTouch() {
+        activeHandle = 0; handleColumn = -1;
+        dismissMagnifier();
+        if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
+    }
+    @Override protected void onDetachedFromWindow() {
+        finishTouch();
+        setSystemGestureExclusionRects(List.of());
+        super.onDetachedFromWindow();
+    }
     @Override public boolean performClick() { super.performClick(); return true; }
 
     @Override public boolean onKeyDown(int key, KeyEvent event) {

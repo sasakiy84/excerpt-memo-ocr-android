@@ -169,6 +169,51 @@ public final class PageViewHostTest {
         }
     }
 
+    @Test public void aHandleMovesBySingleCharactersAtFitToPageScale() {
+        var context = RuntimeEnvironment.getApplication();
+        var view = new PageView(context, null);
+        var geometry = new TextGeometry(List.of(new OcrLine(10, 100, 40, 300, "資料の文字を順番に読む方法を確認します。")));
+        Bitmap page = Bitmap.createBitmap(1000, 1000, Bitmap.Config.ARGB_8888);
+        try {
+            view.layout(0, 0, 400, 400);
+            view.setPage(page, geometry, 0, 5);
+            int[] end = {5};
+            view.setSelectionListener((from, to) -> end[0] = to);
+            float inset = 12 * context.getResources().getDisplayMetrics().density;
+            float step = 80f / geometry.length();
+            float y = 40 + step * 5 + inset;
+            touch(view, MotionEvent.ACTION_DOWN, inset, y);
+            touch(view, MotionEvent.ACTION_MOVE, inset, y + step);
+            assertEquals(6, end[0]);
+            touch(view, MotionEvent.ACTION_UP, inset, y + step * 2);
+            assertEquals(7, end[0]);
+        } finally {
+            page.recycle();
+        }
+    }
+
+    @Test public void handleTouchBoundsExcludeTheSystemBackGestureAtBothEdges() {
+        var view = new PageView(RuntimeEnvironment.getApplication(), null);
+        var geometry = new TextGeometry(List.of(new OcrLine(460, 150, 490, 350, "右の本文"),
+                new OcrLine(10, 150, 40, 350, "左の本文")));
+        Bitmap page = Bitmap.createBitmap(500, 500, Bitmap.Config.ARGB_8888);
+        try {
+            view.layout(0, 0, 500, 500);
+            view.setPage(page, geometry, 0, geometry.length());
+            var bounds = view.getSystemGestureExclusionRects();
+            assertEquals(2, bounds.size());
+            assertEquals(500, bounds.get(0).right);
+            assertEquals(0, bounds.get(1).left);
+            view.setEnabled(false);
+            assertTrue(view.getSystemGestureExclusionRects().isEmpty());
+            view.setEnabled(true);
+            view.setPage(page, geometry, 0, 0);
+            assertTrue(view.getSystemGestureExclusionRects().isEmpty());
+        } finally {
+            page.recycle();
+        }
+    }
+
     private static void touch(PageView view, int action, float x, float y) {
         MotionEvent event = MotionEvent.obtain(0, 20, action, x, y, 0);
         view.onTouchEvent(event); event.recycle();
