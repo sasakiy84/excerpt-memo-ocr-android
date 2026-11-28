@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,6 +40,7 @@ public final class DocumentViewModel extends AndroidViewModel {
     public android.graphics.RectF rectifiedEditCrop = new android.graphics.RectF(0, 0, 1, 1);
     public List<OcrLine> lines = List.of();
     public List<OcrLine> allLines = List.of();
+    private Map<OcrLine, VerticalInkGeometry.Stripe> verticalStripes = Map.of();
     private TextGeometry cachedGeometry = new TextGeometry(lines);
     public int selectionStart, selectionEnd;
     public OcrLanguage language;
@@ -81,9 +83,11 @@ public final class DocumentViewModel extends AndroidViewModel {
                                 (float) line.getDouble(2), (float) line.getDouble(3), line.getString(4),
                                 OcrLine.Kind.valueOf(line.optString(5, "TEXT")), line.optBoolean(6, false)));
                     }
+                    var restoredStripes = VerticalInkGeometry.estimate(restored, restoredLines);
                     main.post(() -> {
                         language = OcrLanguage.from(json.optString("language", "ja"));
                         page = restored; sourcePage = source; allLines = restoredLines;
+                        verticalStripes = restoredStripes;
                         pageRectified = json.optBoolean("pageRectified");
                         processingSeconds = json.optDouble("processingSeconds", -1);
                         rectifiedPage = rectified;
@@ -153,6 +157,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                 main.post(() -> {
                     if (token.get()) return;
                     page = decoded; sourcePage = decoded; pageRectified = false; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false;
+                    verticalStripes = Map.of();
                     rectifiedPage = null; editRectified = false; rectifiedEditAngle = 0; rectifiedEditCrop = new android.graphics.RectF(0, 0, 1, 1);
                     status = ""; busy = false; changed(); save(); read();
                 });
@@ -213,6 +218,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                     if (fromRectified) { rectifiedEditAngle = degrees; rectifiedEditCrop = selection; }
                     else { editAngle = degrees; editCrop = selection; }
                     allLines = lines = List.of(); selectionStart = selectionEnd = 0;
+                    verticalStripes = Map.of();
                     text = ""; textOrigins = new int[0]; textMode = false;
                     busy = false; status = ""; changed(); save(); read();
                 });
@@ -290,6 +296,8 @@ public final class DocumentViewModel extends AndroidViewModel {
                     changed();
                 }));
                 if (token.get()) { if (recognized.image() != source) recognized.image().recycle(); return; }
+                var stripes = VerticalInkGeometry.estimate(recognized.image(), recognized.lines());
+                if (token.get()) { if (recognized.image() != source) recognized.image().recycle(); return; }
                 if (recognized.image() != source) writeImage(recognized.image());
                 if (recognized.rectified()) copySavedPage(rectifiedFile());
                 double elapsed = (System.nanoTime() - started) / 1_000_000_000.0;
@@ -301,7 +309,7 @@ public final class DocumentViewModel extends AndroidViewModel {
                         rectifiedEditAngle = 0; rectifiedEditCrop = new android.graphics.RectF(0, 0, 1, 1);
                     }
                     processingSeconds = elapsed;
-                    allLines = recognized.lines(); rebuildLines(false);
+                    allLines = recognized.lines(); verticalStripes = stripes; rebuildLines(false);
                     status = lines.isEmpty() ? getApplication().getString(R.string.empty_result) : "";
                     busy = false; changed(); save();
                 });
@@ -370,8 +378,8 @@ public final class DocumentViewModel extends AndroidViewModel {
         setExcerpt();
     }
 
-    private TextGeometry geometry() {
-        if (cachedGeometry.lines != lines) cachedGeometry = new TextGeometry(lines);
+    TextGeometry geometry() {
+        if (cachedGeometry.lines != lines) cachedGeometry = new TextGeometry(lines, verticalStripes);
         return cachedGeometry;
     }
 
@@ -428,7 +436,9 @@ public final class DocumentViewModel extends AndroidViewModel {
         processingSeconds = -1;
         cancel();
         language = OcrLanguage.from(getApplication().getSharedPreferences("extraction", 0).getString("language", "ja"));
-        page = null; sourcePage = null; pageRectified = false; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false; changed();
+        page = null; sourcePage = null; pageRectified = false; editAngle = 0; editCrop = new android.graphics.RectF(0, 0, 1, 1); allLines = lines = List.of(); selectionStart = selectionEnd = 0; text = ""; textOrigins = new int[0]; textMode = false;
+        verticalStripes = Map.of();
+        changed();
         rectifiedPage = null; editRectified = false; rectifiedEditAngle = 0; rectifiedEditCrop = new android.graphics.RectF(0, 0, 1, 1);
         return worker.submit(() -> { new AtomicFile(imageFile()).delete(); new AtomicFile(sourceFile()).delete(); new AtomicFile(rectifiedFile()).delete(); new AtomicFile(stateFile()).delete(); });
     }

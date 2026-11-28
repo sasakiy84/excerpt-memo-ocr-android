@@ -179,7 +179,7 @@ public final class MainActivity extends FragmentActivity {
         findViewById(R.id.import_button).setEnabled(!document.busy && !capturing);
         if (hasPage) {
             stopCamera();
-            pageView.setPage(document.page, document.lines, document.selectionStart, document.selectionEnd);
+            pageView.setPage(document.page, document.geometry(), document.selectionStart, document.selectionEnd);
             pageView.setEnabled(!document.busy);
             pageView.setVisibility(document.textMode ? View.GONE : View.VISIBLE);
             boolean hasText = !document.lines.isEmpty() || !document.text.isEmpty();

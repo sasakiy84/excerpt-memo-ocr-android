@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.os.Bundle;
@@ -25,9 +26,11 @@ public final class PageView extends View {
     private int selectionStart, selectionEnd;
     private SelectionListener listener;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+    private final Path stripePath = new Path();
+    private final RectF lineBounds = new RectF();
     private float zoom = 1, panX, panY, downX, downY, lastFocusX, lastFocusY, handleDeltaX, handleDeltaY;
-    private boolean multiplePointers, dragged;
-    private int activeHandle, anchor;
+    private boolean multiplePointers, dragged, touchedHandleKnob;
+    private int activeHandle, anchor, handleColumn;
     private Magnifier magnifier;
     private final ScaleGestureDetector scaleDetector;
 
@@ -48,10 +51,11 @@ public final class PageView extends View {
 
     public void setSelectionListener(SelectionListener listener) { this.listener = listener; }
 
-    public void setPage(Bitmap page, List<OcrLine> lines, int start, int end) {
+    void setPage(Bitmap page, TextGeometry text, int start, int end) {
         if (bitmap != page) { zoom = 1; panX = 0; panY = 0; }
         bitmap = page;
-        if (geometry.lines != lines) geometry = new TextGeometry(lines);
+        if (geometry != text) handleColumn = -1;
+        geometry = text;
         selectionStart = geometry.snap(start, false);
         selectionEnd = geometry.snap(end, true);
         invalidate();
@@ -82,8 +86,10 @@ public final class PageView extends View {
     }
 
     private PointF handleCenter(boolean end) {
-        PointF point = screenPoint(geometry.endpoint(end ? selectionEnd : selectionStart, end));
-        point.offset(dp(end ? 8 : -8), dp(12));
+        int offset = end ? selectionEnd : selectionStart;
+        PointF point = screenPoint(geometry.endpoint(offset, end));
+        if (geometry.verticalEndpoint(offset, end)) point.offset(0, dp(end ? 12 : -12));
+        else point.offset(dp(end ? 8 : -8), dp(12));
         // Keep handles touchable when the text meets the edge of the photograph/view.
         point.x = Math.max(dp(12), Math.min(getWidth() - dp(12), point.x));
         point.y = Math.max(dp(12), Math.min(getHeight() - dp(12), point.y));
@@ -95,24 +101,29 @@ public final class PageView extends View {
         canvas.drawColor(androidx.core.content.ContextCompat.getColor(getContext(), R.color.excerpt_canvas));
         if (bitmap == null) return;
         canvas.save(); canvas.translate(originX(), originY()); canvas.scale(scale(), scale());
+        canvas.clipRect(0, 0, bitmap.getWidth(), bitmap.getHeight());
         paint.setStyle(Paint.Style.FILL); paint.setColor(Color.WHITE);
         canvas.drawBitmap(bitmap, 0, 0, paint);
         for (int i = 0; i < geometry.lines.size(); i++) {
             OcrLine line = geometry.lines.get(i);
             paint.setColor(androidx.core.content.ContextCompat.getColor(getContext(), R.color.excerpt_line_hint));
-            canvas.drawRect(line.left(), line.top(), line.right(), line.bottom(), paint);
+            lineBounds.set(line.left(), line.top(), line.right(), line.bottom());
+            geometry.drawRegion(canvas, paint, stripePath, i, lineBounds);
             RectF selected = geometry.highlight(i, selectionStart, selectionEnd);
-            paint.setColor(androidx.core.content.ContextCompat.getColor(getContext(), R.color.excerpt_highlight)); canvas.drawRect(selected, paint);
+            paint.setColor(androidx.core.content.ContextCompat.getColor(getContext(), R.color.excerpt_highlight));
+            geometry.drawRegion(canvas, paint, stripePath, i, selected);
         }
         canvas.restore();
         if (selectionStart < selectionEnd) { drawHandle(canvas, false); drawHandle(canvas, true); }
     }
 
     private void drawHandle(Canvas canvas, boolean end) {
-        PointF edge = screenPoint(geometry.endpoint(end ? selectionEnd : selectionStart, end));
+        int offset = end ? selectionEnd : selectionStart;
+        PointF edge = screenPoint(geometry.endpoint(offset, end));
         PointF center = handleCenter(end);
         paint.setColor(androidx.core.content.ContextCompat.getColor(getContext(), R.color.excerpt_handle)); paint.setStrokeWidth(dp(2));
-        canvas.drawLine(edge.x, edge.y - dp(10), edge.x, edge.y, paint);
+        if (geometry.verticalEndpoint(offset, end)) canvas.drawLine(edge.x - dp(5), edge.y, edge.x + dp(5), edge.y, paint);
+        else canvas.drawLine(edge.x, edge.y - dp(10), edge.x, edge.y, paint);
         canvas.drawLine(edge.x, edge.y, center.x, center.y, paint);
         canvas.drawCircle(center.x, center.y, dp(9), paint);
     }
@@ -124,7 +135,7 @@ public final class PageView extends View {
             case MotionEvent.ACTION_DOWN -> {
                 requestFocus();
                 getParent().requestDisallowInterceptTouchEvent(true);
-                multiplePointers = false; dragged = false; activeHandle = 0;
+                multiplePointers = false; dragged = false; activeHandle = 0; touchedHandleKnob = false; handleColumn = -1;
                 downX = event.getX(); downY = event.getY();
                 if (selectionStart < selectionEnd) {
                     PointF first = handleCenter(false), last = handleCenter(true);
@@ -132,7 +143,12 @@ public final class PageView extends View {
                     float b = (float) Math.hypot(downX - last.x, downY - last.y);
                     if (Math.min(a, b) <= dp(24)) {
                         activeHandle = a < b ? 1 : 2;
-                        PointF edge = screenPoint(geometry.endpoint(activeHandle == 1 ? selectionStart : selectionEnd, activeHandle == 2));
+                        touchedHandleKnob = Math.min(a, b) <= dp(9);
+                        boolean end = activeHandle == 2;
+                        int offset = end ? selectionEnd : selectionStart;
+                        int line = geometry.lineAt(offset, end);
+                        if (line >= 0 && geometry.lines.get(line).vertical()) handleColumn = line;
+                        PointF edge = screenPoint(geometry.endpoint(offset, end));
                         handleDeltaX = downX - edge.x; handleDeltaY = downY - edge.y;
                     }
                 }
@@ -162,7 +178,7 @@ public final class PageView extends View {
             }
             case MotionEvent.ACTION_UP -> {
                 if (!multiplePointers && !geometry.lines.isEmpty()) {
-                    if (!dragged && activeHandle == 0) { selectionStart = anchor; selectionEnd = geometry.next(anchor); notifySelection(); }
+                    if (!dragged && !touchedHandleKnob) { selectionStart = anchor; selectionEnd = geometry.next(anchor); notifySelection(); }
                     performClick(); invalidate();
                 }
                 dismissMagnifier(); getParent().requestDisallowInterceptTouchEvent(false);
@@ -176,7 +192,12 @@ public final class PageView extends View {
     private void moveSelection(float x, float y) {
         if (geometry.lines.isEmpty()) return;
         PointF point = pagePoint(x - (activeHandle == 0 ? 0 : handleDeltaX), y - (activeHandle == 0 ? 0 : handleDeltaY));
-        int offset = geometry.nearest(point.x, point.y, activeHandle != 0);
+        // Travelling straight down a tilted column should only change the character boundary.
+        OcrLine column = handleColumn >= 0 ? geometry.lines.get(handleColumn) : null;
+        boolean followingColumn = column != null && Math.abs(x - downX) <= dp(4)
+                && point.y >= column.top() && point.y <= column.bottom();
+        int offset = followingColumn ? geometry.offsetOnLine(handleColumn, point.x, point.y, true)
+                : geometry.nearest(point.x, point.y, activeHandle != 0);
         if (activeHandle == 1) selectionStart = Math.min(offset, geometry.previous(selectionEnd));
         else if (activeHandle == 2) selectionEnd = Math.max(offset, geometry.next(selectionStart));
         else { selectionStart = Math.min(anchor, offset); selectionEnd = geometry.next(Math.max(anchor, offset)); }

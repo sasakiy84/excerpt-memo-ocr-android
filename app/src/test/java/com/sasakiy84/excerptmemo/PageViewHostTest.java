@@ -7,6 +7,7 @@ import android.view.MotionEvent;
 import androidx.lifecycle.ViewModelProvider;
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -91,13 +92,81 @@ public final class PageViewHostTest {
             PageView view = activity.findViewById(R.id.page_view);
             view.layout(0, 0, 1000, 1000);
             float density = activity.getResources().getDisplayMetrics().density;
-            float dx = -8 * density, dy = 12 * density;
-            touch(view, MotionEvent.ACTION_DOWN, 580 + dx, 100 + dy);
-            touch(view, MotionEvent.ACTION_MOVE, 580 + dx, 400 + dy);
-            touch(view, MotionEvent.ACTION_UP, 580 + dx, 400 + dy);
+            float handleOffset = 12 * density;
+            touch(view, MotionEvent.ACTION_DOWN, 540, 100 - handleOffset);
+            touch(view, MotionEvent.ACTION_MOVE, 540, 400 - handleOffset);
+            touch(view, MotionEvent.ACTION_UP, 540, 400 - handleOffset);
             assertEquals("文字を読む", model.text);
             assertEquals(3, model.selectionStart);
         } finally { DocumentExtractionHostTest.close(controller); }
+    }
+
+    @Test public void aTapNearTheVerticalHandleCanSelectTheNeighboringColumn() throws Exception {
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        try {
+            var activity = controller.get();
+            var model = new ViewModelProvider(activity).get(DocumentViewModel.class);
+            DocumentExtractionHostTest.awaitIdle(model);
+            model.closePage().get();
+            model.page = Bitmap.createBitmap(1000, 1000, Bitmap.Config.ARGB_8888);
+            model.allLines = List.of(new OcrLine(500, 200, 540, 600, "資料抜粋"),
+                    new OcrLine(450, 100, 490, 500, "書籍本文"));
+            model.setInclusions(false, false, false);
+            model.select(0, 4);
+            PageView view = activity.findViewById(R.id.page_view);
+            view.layout(0, 0, 1000, 1000);
+            touch(view, MotionEvent.ACTION_DOWN, 470, 170);
+            touch(view, MotionEvent.ACTION_UP, 470, 170);
+            assertEquals("書", model.text);
+        } finally { DocumentExtractionHostTest.close(controller); }
+    }
+
+    @Test public void draggingTheEndHandleAcrossVerticalColumnsSelectsRightToLeft() throws Exception {
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        try {
+            var activity = controller.get();
+            var model = new ViewModelProvider(activity).get(DocumentViewModel.class);
+            DocumentExtractionHostTest.awaitIdle(model);
+            model.closePage().get();
+            model.page = Bitmap.createBitmap(1000, 1000, Bitmap.Config.ARGB_8888);
+            model.allLines = List.of(new OcrLine(600, 200, 640, 600, "資料抜粋"),
+                    new OcrLine(540, 200, 580, 600, "書籍本文"));
+            model.setInclusions(false, false, false);
+            model.select(1, 3);
+            PageView view = activity.findViewById(R.id.page_view);
+            view.layout(0, 0, 1000, 1000);
+            float offset = 12 * activity.getResources().getDisplayMetrics().density;
+            touch(view, MotionEvent.ACTION_DOWN, 620, 500 + offset);
+            touch(view, MotionEvent.ACTION_MOVE, 560, 400 + offset);
+            touch(view, MotionEvent.ACTION_UP, 560, 400 + offset);
+            assertEquals("料抜粋書籍", model.text);
+        } finally { DocumentExtractionHostTest.close(controller); }
+    }
+
+    @Test public void aStraightDragStaysOnTheSlantedColumn() {
+        var context = RuntimeEnvironment.getApplication();
+        var parent = new android.widget.FrameLayout(context);
+        var view = new PageView(context, null);
+        var right = new OcrLine(100, 20, 160, 220, "資料抜粋");
+        var left = new OcrLine(65, 20, 125, 220, "書籍本文");
+        var geometry = new TextGeometry(List.of(right, left), Map.of(
+                right, new VerticalInkGeometry.Stripe(110, 145, 8),
+                left, new VerticalInkGeometry.Stripe(75, 110, 8)));
+        Bitmap page = Bitmap.createBitmap(300, 300, Bitmap.Config.ARGB_8888);
+        try {
+            parent.addView(view);
+            view.layout(0, 0, 300, 300);
+            view.setPage(page, geometry, 0, 1);
+            int[] selection = new int[2];
+            view.setSelectionListener((start, end) -> { selection[0] = start; selection[1] = end; });
+            float yOffset = 12 * context.getResources().getDisplayMetrics().density;
+            touch(view, MotionEvent.ACTION_DOWN, 118.75f, 70 + yOffset);
+            touch(view, MotionEvent.ACTION_MOVE, 118.75f, 205 + yOffset);
+            touch(view, MotionEvent.ACTION_UP, 118.75f, 205 + yOffset);
+            assertEquals("資料抜粋", geometry.text.substring(selection[0], selection[1]));
+        } finally {
+            page.recycle();
+        }
     }
 
     private static void touch(PageView view, int action, float x, float y) {

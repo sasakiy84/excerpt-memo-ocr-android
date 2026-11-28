@@ -1,12 +1,15 @@
 package com.sasakiy84.excerptmemo;
 
+import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.icu.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /** Maps grapheme boundaries to the line boxes supplied by PARSeq, which has no character boxes. */
 final class TextGeometry {
@@ -15,18 +18,25 @@ final class TextGeometry {
     final int[] starts;
     private final int[][] boundaries;
     private final float[][] positions;
+    private final VerticalInkGeometry.Stripe[] stripes;
 
     TextGeometry(List<OcrLine> lines) {
+        this(lines, Map.of());
+    }
+
+    TextGeometry(List<OcrLine> lines, Map<OcrLine, VerticalInkGeometry.Stripe> verticalStripes) {
         this.lines = lines;
         text = ReadingOrder.text(lines);
         starts = new int[lines.size()];
         boundaries = new int[lines.size()][];
         positions = new float[lines.size()][];
+        stripes = new VerticalInkGeometry.Stripe[lines.size()];
         Paint font = new Paint(Paint.ANTI_ALIAS_FLAG);
         font.setTextSize(100);
         int offset = 0;
         for (int i = 0; i < lines.size(); i++) {
             OcrLine line = lines.get(i);
+            stripes[i] = verticalStripes.get(line);
             starts[i] = offset;
             offset += line.text().length() + 1;
             BreakIterator iterator = BreakIterator.getCharacterInstance(Locale.ROOT);
@@ -96,31 +106,77 @@ final class TextGeometry {
         if (index < 0) return new PointF();
         OcrLine line = lines.get(index);
         float fraction = fraction(index, offset);
-        return line.vertical() ? new PointF(line.right(), line.top() + (line.bottom() - line.top()) * fraction)
+        return line.vertical() ? new PointF(centerX(index, fraction), line.top() + (line.bottom() - line.top()) * fraction)
                 : new PointF(line.left() + (line.right() - line.left()) * fraction, line.bottom());
+    }
+
+    boolean verticalEndpoint(int offset, boolean end) {
+        int index = lineAt(offset, end);
+        return index >= 0 && lines.get(index).vertical();
+    }
+
+    private static float verticalFraction(OcrLine line, float y) {
+        return Math.max(0, Math.min(1, (y - line.top()) / (line.bottom() - line.top())));
+    }
+
+    private float centerX(int index, float fraction) {
+        VerticalInkGeometry.Stripe stripe = stripes[index];
+        return stripe == null ? lines.get(index).centerX() : stripe.centerAt(fraction);
+    }
+
+    void drawRegion(Canvas canvas, Paint paint, Path path, int index, RectF rect) {
+        if (rect.isEmpty()) return;
+        VerticalInkGeometry.Stripe stripe = stripes[index];
+        if (stripe == null) {
+            canvas.drawRect(rect, paint);
+            return;
+        }
+        OcrLine line = lines.get(index);
+        float top = stripe.centerAt(verticalFraction(line, rect.top));
+        float bottom = stripe.centerAt(verticalFraction(line, rect.bottom));
+        float halfWidth = stripe.halfWidth();
+        path.rewind();
+        path.moveTo(top - halfWidth, rect.top);
+        path.lineTo(top + halfWidth, rect.top);
+        path.lineTo(bottom + halfWidth, rect.bottom);
+        path.lineTo(bottom - halfWidth, rect.bottom);
+        path.close();
+        canvas.drawPath(path, paint);
     }
 
     int nearest(float x, float y, boolean boundary) {
         int nearestLine = -1;
         float distance = Float.MAX_VALUE;
+        float centerDistance = Float.MAX_VALUE;
         for (int i = 0; i < lines.size(); i++) {
             OcrLine line = lines.get(i);
-            float dx = Math.max(Math.max(line.left() - x, 0), x - line.right());
-            float dy = Math.max(Math.max(line.top() - y, 0), y - line.bottom());
+            VerticalInkGeometry.Stripe stripe = stripes[i];
+            float crossDistance = line.vertical() ? Math.abs(x - centerX(i, verticalFraction(line, y)))
+                    : Math.abs(y - line.centerY());
+            float dx = stripe == null ? Math.max(0, Math.max(line.left() - x, x - line.right()))
+                    : Math.max(0, crossDistance - stripe.halfWidth());
+            float dy = Math.max(0, Math.max(line.top() - y, y - line.bottom()));
             float squared = dx * dx + dy * dy;
-            if (squared < distance) { distance = squared; nearestLine = i; }
+            if (squared < distance || (squared == distance && crossDistance < centerDistance)) {
+                distance = squared;
+                centerDistance = crossDistance;
+                nearestLine = i;
+            }
         }
-        if (nearestLine < 0) return 0;
-        OcrLine line = lines.get(nearestLine);
+        return nearestLine < 0 ? 0 : offsetOnLine(nearestLine, x, y, boundary);
+    }
+
+    int offsetOnLine(int index, float x, float y, boolean boundary) {
+        OcrLine line = lines.get(index);
         float position = line.vertical() ? (y - line.top()) / (line.bottom() - line.top())
                 : (x - line.left()) / (line.right() - line.left());
-        float[] points = positions[nearestLine];
+        float[] points = positions[index];
         int chosen = 0;
         if (boundary) {
             for (int i = 1; i < points.length; i++) if (Math.abs(points[i] - position) < Math.abs(points[chosen] - position)) chosen = i;
         } else {
             while (chosen + 1 < points.length - 1 && position >= points[chosen + 1]) chosen++;
         }
-        return starts[nearestLine] + boundaries[nearestLine][chosen];
+        return starts[index] + boundaries[index][chosen];
     }
 }
