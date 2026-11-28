@@ -6,8 +6,8 @@
     <string name="read">読み取る</string>
     <string name="reread">再読取</string>
     <string name="copy">コピー</string>
-    <string name="page">ページ</string>
-    <string name="text">テキスト</string>
+    <string name="page">画像</string>
+    <string name="text">文字</string>
     <string name="all">すべて選択</string>
     <string name="rotate">回転</string>
     <string name="back">戻る</string>
@@ -26,7 +26,6 @@
     <string name="ndl_recognizing">NDLOCR-Lite を実行中</string>
     <string name="paddle_tiny_detecting">PP-OCRv6 tiny で行を検出中</string>
     <string name="paddle_medium_detecting">PP-OCRv6 medium で行を検出中</string>
-    <string name="improving_contrast">コントラストを補正中</string>
     <string name="paddle_detecting">PP-OCRv6 small で行を検出中</string>
     <string name="paddle_recognizing">PP-OCRv6 を実行中</string>
     <string name="uvdoc_running">UVDoc で補正中</string>
@@ -62,10 +61,16 @@
     <string name="automatic_model">モデルを自動選択</string>
     <string name="ocr_settings_hint">自動選択をオフにするとモデルを選べます。変更は次の読み取りから適用されます。</string>
     <string name="detection_model">読取モデル</string>
+    <string name="ocr_model_auto">自動選択</string>
+    <string name="ocr_model_control">%1$s ▾</string>
+    <string name="ocr_model_description">読取モデル、%1$s</string>
     <string name="recognition_model">PP-OCRv6 の文字認識モデル</string>
     <string name="flatten_model">湾曲補正（UVDoc）</string>
     <string-array name="detection_models">
         <item>NDLOCR-Lite</item><item>PP-OCRv6 tiny</item><item>PP-OCRv6 small</item><item>PP-OCRv6 medium</item>
+    </string-array>
+    <string-array name="ocr_model_short_names">
+        <item>自動</item><item>NDL</item><item>tiny</item><item>small</item><item>medium</item>
     </string-array>
     <string-array name="recognition_models"><item>PP-OCRv6 small</item><item>PP-OCRv6 medium</item></string-array>
     <string name="model_language">モデル設定の言語</string>

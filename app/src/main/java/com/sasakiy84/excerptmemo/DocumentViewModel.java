@@ -231,6 +231,18 @@ public final class DocumentViewModel extends AndroidViewModel {
         if (page != null) read(); else changed();
     }
 
+    void setOcrModel(boolean automatic, OcrSettings.Model model) {
+        if (busy || page == null) return;
+        OcrSettings.Selection current = ocrSelection();
+        if (automatic == current.automatic() && (automatic || model == current.model())) return;
+        var settings = OcrSettings.preferences(getApplication(), language).edit().putBoolean("automatic", automatic);
+        if (!automatic) settings.putString("model", model.name());
+        settings.apply();
+        read();
+    }
+
+    OcrSettings.Selection ocrSelection() { return OcrSettings.load(getApplication(), language); }
+
     void prepareOcr() {
         if (busy || page != null || detectorPreparationRequested) return;
         detectorPreparationRequested = true;
@@ -257,7 +269,7 @@ public final class DocumentViewModel extends AndroidViewModel {
         Bitmap source = page;
         boolean alreadyRectified = pageRectified;
         OcrLanguage selectedLanguage = language;
-        OcrSettings.Selection selectedModels = OcrSettings.load(getApplication(), selectedLanguage);
+        OcrSettings.Selection selectedModels = ocrSelection();
         long started = System.nanoTime();
         processingSeconds = -1; busy = true; status = getApplication().getString(R.string.loading_model); changed();
         worker.execute(() -> {
@@ -270,7 +282,6 @@ public final class DocumentViewModel extends AndroidViewModel {
                         case PADDLE_DETECTION -> R.string.paddle_detecting;
                         case PADDLE_TINY_DETECTION -> R.string.paddle_tiny_detecting;
                         case PADDLE_MEDIUM_DETECTION -> R.string.paddle_medium_detecting;
-                        case CONTRAST -> R.string.improving_contrast;
                         case PADDLE_RECOGNITION -> R.string.paddle_recognizing;
                         case UVDOC -> R.string.uvdoc_running;
                     };

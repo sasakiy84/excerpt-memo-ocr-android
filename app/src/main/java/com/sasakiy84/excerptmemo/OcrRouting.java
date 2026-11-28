@@ -18,21 +18,22 @@ final class OcrRouting {
         return overlap / Math.max(1, area);
     }
 
-    static Route choose(List<OcrLine> layout, int width, int height, boolean allowFlatten) {
-        List<OcrLine> body = layout.stream().filter(l -> l.kind() == OcrLine.Kind.TEXT).toList();
-        List<Float> verticalHeights = new ArrayList<>();
+    static Route choose(List<OcrLine> layout, int width, boolean alreadyRectified, OcrLanguage language) {
         List<OcrLine> horizontal = new ArrayList<>();
-        int horizontalCount = 0;
-        for (OcrLine line : body) {
-            if (line.vertical()) verticalHeights.add(line.bottom() - line.top());
+        int verticalCount = 0, horizontalCount = 0;
+        for (OcrLine line : layout) {
+            if (line.kind() != OcrLine.Kind.TEXT) continue;
+            if (line.vertical()) verticalCount++;
             else {
                 horizontalCount++;
                 if (line.right() - line.left() >= width * .3f) horizontal.add(line);
             }
         }
-        if (verticalHeights.size() >= 3 && verticalHeights.size() >= body.size() * .7f
-                && median(verticalHeights) > height * .35f) return Route.PADDLE;
-        if (!allowFlatten || horizontal.size() < 8 || horizontalCount < body.size() * .6f) return Route.NDL;
+        boolean japanese = language == OcrLanguage.JAPANESE;
+        if (japanese && verticalCount > horizontalCount) return Route.NDL;
+        if (alreadyRectified) return Route.FLATTEN_PADDLE;
+        Route defaultRoute = japanese ? Route.NDL : Route.PADDLE;
+        if (horizontal.size() < 8 || horizontalCount < (horizontalCount + verticalCount) * .6f) return defaultRoute;
         List<Float> overlapRatios = new ArrayList<>();
         for (OcrLine line : horizontal) {
             float pitch = Float.POSITIVE_INFINITY;
@@ -47,7 +48,7 @@ final class OcrRouting {
             if (Float.isFinite(pitch)) overlapRatios.add((line.bottom() - line.top()) / pitch);
         }
         // Bent/slanted rows have overlapping axis-aligned boxes; flat rows do not.
-        return !overlapRatios.isEmpty() && median(overlapRatios) > 1.2f ? Route.FLATTEN_PADDLE : Route.NDL;
+        return !overlapRatios.isEmpty() && median(overlapRatios) > 1.2f ? Route.FLATTEN_PADDLE : defaultRoute;
     }
 
     private static float median(List<Float> values) {

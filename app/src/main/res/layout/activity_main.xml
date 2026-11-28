@@ -36,6 +36,12 @@
         <LinearLayout android:id="@+id/document_panel" android:layout_width="match_parent"
             android:layout_height="match_parent" android:orientation="vertical" android:visibility="gone">
 
+            <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingHorizontal="12dp" android:paddingVertical="2dp" android:textSize="13sp"
+                android:textColor="@color/excerpt_muted" android:accessibilityLiveRegion="polite" android:visibility="gone" />
+            <ProgressBar style="?android:attr/progressBarStyleHorizontal" android:id="@+id/progress"
+                android:layout_width="match_parent" android:layout_height="3dp" android:indeterminate="true"
+                android:layout_marginHorizontal="12dp" android:layout_marginBottom="4dp" android:visibility="gone" />
             <LinearLayout android:id="@+id/document_content" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical">
                 <com.sasakiy84.excerptmemo.PageView android:id="@+id/page_view"
                     android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
@@ -57,33 +63,34 @@
                         android:scrollbars="vertical" android:importantForAutofill="no" android:hint="@string/result_text" />
                 </com.sasakiy84.excerptmemo.TextDrawer>
             </LinearLayout>
-            <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:paddingHorizontal="20dp" android:paddingTop="10dp" android:textSize="13sp"
-                android:textColor="@color/excerpt_muted" android:accessibilityLiveRegion="polite" android:visibility="gone" />
-            <ProgressBar style="?android:attr/progressBarStyleHorizontal" android:id="@+id/progress"
-                android:layout_width="match_parent" android:layout_height="3dp" android:indeterminate="true"
-                android:layout_marginHorizontal="20dp" android:layout_marginTop="8dp" android:visibility="gone" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal" android:gravity="center_vertical"
-                android:paddingHorizontal="12dp" android:paddingTop="4dp" android:paddingBottom="8dp">
-            <RadioGroup android:id="@+id/mode_toggle"
-                android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp"
-                android:padding="0dp"
-                android:background="@drawable/mode_switch_background"
-                android:orientation="horizontal" android:checkedButton="@id/page_mode">
-                <RadioButton android:id="@+id/page_mode"
-                    style="@style/Widget.Excerpt.ModeButton" android:layout_width="0dp" android:layout_weight="1"
-                    android:layout_height="match_parent" android:text="@string/page" />
-                <RadioButton android:id="@+id/text_mode"
-                    style="@style/Widget.Excerpt.ModeButton" android:layout_width="0dp" android:layout_weight="1"
-                    android:layout_height="match_parent" android:text="@string/text" />
-            </RadioGroup>
+                android:paddingHorizontal="8dp" android:paddingTop="4dp" android:paddingBottom="6dp">
+                <RadioGroup android:id="@+id/mode_toggle"
+                    android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp"
+                    android:padding="0dp"
+                    android:background="@drawable/mode_switch_background"
+                    android:orientation="horizontal" android:checkedButton="@id/page_mode">
+                    <RadioButton android:id="@+id/page_mode"
+                        style="@style/Widget.Excerpt.ModeButton" android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="match_parent" android:paddingHorizontal="4dp"
+                        android:maxLines="1" android:ellipsize="end" android:text="@string/page" />
+                    <RadioButton android:id="@+id/text_mode"
+                        style="@style/Widget.Excerpt.ModeButton" android:layout_width="0dp" android:layout_weight="1"
+                        android:layout_height="match_parent" android:paddingHorizontal="4dp"
+                        android:maxLines="1" android:ellipsize="end" android:text="@string/text" />
+                </RadioGroup>
+                <Button android:id="@+id/ocr_model_button" style="@style/Widget.Excerpt.SecondaryButton"
+                    android:layout_width="72dp" android:layout_height="48dp" android:layout_marginStart="4dp"
+                    android:paddingHorizontal="4dp" android:maxLines="1" android:ellipsize="end"
+                    android:autoSizeTextType="uniform" android:autoSizeMinTextSize="10sp"
+                    android:autoSizeMaxTextSize="13sp" android:autoSizeStepGranularity="1sp" />
                 <ImageButton android:id="@+id/read_button" style="@style/Widget.Excerpt.SecondaryButton"
-                    android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="8dp"
+                    android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="4dp"
                     android:padding="12dp" android:scaleType="centerInside" android:src="@drawable/ic_refresh"
                     android:tint="@color/excerpt_ink" android:contentDescription="@string/reread" android:tooltipText="@string/reread" />
                 <ImageButton android:id="@+id/copy_button" android:layout_width="48dp" android:layout_height="48dp"
-                    android:layout_marginStart="6dp" android:background="@drawable/button_primary" android:padding="12dp"
+                    android:layout_marginStart="4dp" android:background="@drawable/button_primary" android:padding="12dp"
                     android:scaleType="centerInside" android:src="@drawable/ic_copy" android:tint="@color/excerpt_on_primary"
                     android:contentDescription="@string/copy" android:tooltipText="@string/copy" android:enabled="false" />
             </LinearLayout>

@@ -2,12 +2,14 @@ package com.sasakiy84.excerptmemo;
 
 import static org.junit.Assert.*;
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.ClipboardManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import androidx.lifecycle.ViewModelProvider;
 import android.widget.Toolbar;
@@ -24,6 +26,7 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.GraphicsMode;
+import org.robolectric.shadows.ShadowAlertDialog;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 36, qualifiers = "w411dp-h731dp-420dpi")
@@ -96,6 +99,52 @@ public final class MainActivityHostTest {
         } finally { DocumentExtractionHostTest.close(controller); }
     }
 
+    @Test public void modelChooserRereadsTheOpenPageAndCanReturnToAutomatic() throws Exception {
+        HostOpenCv.load();
+        var controller = Robolectric.buildActivity(MainActivity.class).setup();
+        MainActivity activity = controller.get();
+        var model = new ViewModelProvider(activity).get(DocumentViewModel.class);
+        var settings = OcrSettings.preferences(model.getApplication(), OcrLanguage.JAPANESE);
+        try (var fixture = getClass().getResourceAsStream("/vertical.png")) {
+            DocumentExtractionHostTest.awaitIdle(model);
+            model.closePage().get();
+            model.setLanguage(OcrLanguage.JAPANESE);
+            var page = BitmapFactory.decodeStream(fixture);
+            model.page = page;
+            model.setInclusions(false, false, false);
+            Button button = activity.findViewById(R.id.ocr_model_button);
+            assertEquals("自動 ▾", button.getText().toString());
+
+            button.performClick();
+            AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
+            var choices = dialog.getListView();
+            assertEquals(0, choices.getCheckedItemPosition());
+            assertEquals("PP-OCRv6 tiny", choices.getItemAtPosition(2).toString());
+            choices.performItemClick(null, 2, choices.getItemIdAtPosition(2));
+            assertTrue(model.busy);
+            assertFalse(button.isEnabled());
+            DocumentExtractionHostTest.awaitIdle(model);
+            assertSame(page, model.page);
+            assertTrue(model.text.contains("資料"));
+            assertEquals(OcrSettings.Model.TINY, model.ocrSelection().model());
+            assertFalse(model.ocrSelection().automatic());
+            assertEquals("tiny ▾", button.getText().toString());
+
+            button.performClick();
+            choices = ShadowAlertDialog.getLatestAlertDialog().getListView();
+            assertEquals(2, choices.getCheckedItemPosition());
+            choices.performItemClick(null, 0, choices.getItemIdAtPosition(0));
+            assertTrue(model.busy);
+            DocumentExtractionHostTest.awaitIdle(model);
+            assertTrue(model.text.contains("資料"));
+            assertTrue(model.ocrSelection().automatic());
+            assertEquals("自動 ▾", button.getText().toString());
+        } finally {
+            settings.edit().clear().commit();
+            DocumentExtractionHostTest.close(controller);
+        }
+    }
+
     @Test public void copyHonorsReverseTextSelection() throws Exception {
         var controller = Robolectric.buildActivity(MainActivity.class).setup();
         try {
@@ -114,6 +163,16 @@ public final class MainActivityHostTest {
             model.busy = false;
             model.setInclusions(false, false, false);
             render(activity, "page");
+            render(activity, "page-narrow", 840, 1470);
+            View modes = activity.findViewById(R.id.mode_toggle);
+            View modelButton = activity.findViewById(R.id.ocr_model_button);
+            View readButton = activity.findViewById(R.id.read_button);
+            View copyButton = activity.findViewById(R.id.copy_button);
+            assertEquals(modes.getTop(), modelButton.getTop());
+            assertEquals(modes.getTop(), readButton.getTop());
+            assertEquals(modes.getTop(), copyButton.getTop());
+            assertTrue(modes.getRight() <= modelButton.getLeft() && modelButton.getRight() <= readButton.getLeft()
+                    && readButton.getRight() <= copyButton.getLeft());
             EditText text = activity.findViewById(R.id.result_text);
             text.setSelection(5, 0);
             activity.findViewById(R.id.copy_button).performClick();

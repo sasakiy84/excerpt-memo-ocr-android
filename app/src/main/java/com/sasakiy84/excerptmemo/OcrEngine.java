@@ -31,7 +31,7 @@ import ai.onnxruntime.TensorInfo;
 
 /** Runs on-device OCR with NDLOCR-Lite and PP-OCRv6. */
 public final class OcrEngine implements AutoCloseable {
-    public enum Stage { NDL_DETECTION, NDL_RECOGNITION, PADDLE_DETECTION, PADDLE_TINY_DETECTION, PADDLE_MEDIUM_DETECTION, CONTRAST, PADDLE_RECOGNITION, UVDOC }
+    public enum Stage { NDL_DETECTION, NDL_RECOGNITION, PADDLE_DETECTION, PADDLE_TINY_DETECTION, PADDLE_MEDIUM_DETECTION, PADDLE_RECOGNITION, UVDOC }
     public interface Progress { void update(Stage stage, int done, int total); }
     private final Context context;
     private final OrtEnvironment environment = OrtEnvironment.getEnvironment();
@@ -109,7 +109,7 @@ public final class OcrEngine implements AutoCloseable {
                 Bitmap line = Bitmap.createBitmap(crop, box.left, box.top, box.width(), box.height());
                 String text;
                 try {
-                    text = recognize(line, detection.tier, cancelled);
+                    text = recognize(line, detection, cancelled);
                 } finally { if (line != crop) line.recycle(); }
                 if (!text.isBlank()) lines.add(new OcrLine(box.left + region.left, box.top + region.top,
                         box.right + region.left, box.bottom + region.top, text, detection.kind));
@@ -154,24 +154,12 @@ public final class OcrEngine implements AutoCloseable {
         progress.update(Stage.NDL_DETECTION, 0, 1);
         List<Detection> layout = detect(page, session(DETECTOR));
         List<OcrLine> geometry = layout.stream().map(d -> new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, "", d.kind)).toList();
-        OcrRouting.Route route = !selected.automatic() ? OcrRouting.Route.NDL : alreadyRectified ? OcrRouting.Route.FLATTEN_PADDLE
-                : OcrRouting.choose(geometry, page.getWidth(), page.getHeight(), true);
-        if (selected.automatic() && language == OcrLanguage.ENGLISH && route == OcrRouting.Route.NDL) route = OcrRouting.Route.PADDLE;
+        OcrRouting.Route route = selected.automatic()
+                ? OcrRouting.choose(geometry, page.getWidth(), alreadyRectified, language) : OcrRouting.Route.NDL;
         checkCancelled(cancelled);
         if (route == OcrRouting.Route.PADDLE) {
-            Bitmap contrast = null;
-            try {
-                boolean japanese = language == OcrLanguage.JAPANESE;
-                if (japanese) {
-                    progress.update(Stage.CONTRAST, 0, 1);
-                    contrast = PaddleOcr.improveContrast(page);
-                    checkCancelled(cancelled);
-                }
-                List<OcrLine> lines = readPaddle(japanese ? contrast : page, layout, cancelled, progress, language,
-                        japanese ? PaddleOcr.TINY_DETECTOR : PaddleOcr.DETECTOR,
-                        japanese ? japanesePolicy() : recognitionPolicy);
-                return new PageResult(page, lines, false, japanese ? "clahe-paddle-tiny-det" : "paddle-english");
-            } finally { if (contrast != null) contrast.recycle(); }
+            List<OcrLine> lines = readPaddle(page, layout, cancelled, progress, language, PaddleOcr.DETECTOR, recognitionPolicy);
+            return new PageResult(page, lines, false, "paddle-english");
         }
 
         Bitmap target = page;
@@ -199,7 +187,7 @@ public final class OcrEngine implements AutoCloseable {
                 checkCancelled(cancelled);
                 Bitmap crop = Bitmap.createBitmap(target, d.box.left, d.box.top, d.box.width(), d.box.height());
                 String text;
-                try { text = route == OcrRouting.Route.FLATTEN_PADDLE ? paddle().recognize(crop, cancelled, language == OcrLanguage.ENGLISH) : recognize(crop, d.tier, cancelled); }
+                try { text = route == OcrRouting.Route.FLATTEN_PADDLE ? paddle().recognize(crop, cancelled, language == OcrLanguage.ENGLISH) : recognize(crop, d, cancelled); }
                 finally { if (crop != target) crop.recycle(); }
                 if (!text.isBlank()) lines.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind, language == OcrLanguage.ENGLISH));
                 progress.update(stage, ++done, layout.size());
@@ -238,7 +226,7 @@ public final class OcrEngine implements AutoCloseable {
             progress.update(Stage.NDL_RECOGNITION, 0, 1);
             Bitmap crop = Bitmap.createBitmap(page, d.box.left, d.box.top, d.box.width(), d.box.height());
             String text;
-            try { text = recognize(crop, d.tier, cancelled); } finally { if (crop != page) crop.recycle(); }
+            try { text = recognize(crop, d, cancelled); } finally { if (crop != page) crop.recycle(); }
             if (!text.isBlank()) classified.add(new OcrLine(d.box.left, d.box.top, d.box.right, d.box.bottom, text, d.kind, language == OcrLanguage.ENGLISH));
             progress.update(Stage.NDL_RECOGNITION, 1, 1);
         }
@@ -352,24 +340,29 @@ public final class OcrEngine implements AutoCloseable {
         return values;
     }
 
-    private String recognize(Bitmap image, int tier, AtomicBoolean cancelled) throws Exception {
+    private String recognize(Bitmap image, Detection detection, AtomicBoolean cancelled) throws Exception {
+        // A tight crop can make a short, horizontal folio nearly square.
+        boolean horizontalFolio = detection.kind == OcrLine.Kind.PAGE_NUMBER
+                && image.getHeight() <= image.getWidth() * 1.2f;
+        boolean rotate = !horizontalFolio && image.getHeight() > image.getWidth() * 0.8f;
+        int tier = horizontalFolio ? 3 : detection.tier;
         if (tier == 3) {
-            String text = recognize(image, SHORT, 256);
+            String text = recognize(image, SHORT, 256, rotate);
             if (text.codePointCount(0, text.length()) < 25) return text;
             checkCancelled(cancelled);
             tier = 2;
         }
         if (tier == 2) {
-            String text = recognize(image, MEDIUM, 384);
+            String text = recognize(image, MEDIUM, 384, rotate);
             if (text.codePointCount(0, text.length()) < 45) return text;
             checkCancelled(cancelled);
         }
-        return recognize(image, LONG, 768);
+        return recognize(image, LONG, 768, rotate);
     }
 
-    private String recognize(Bitmap image, String model, int width) throws Exception {
+    private String recognize(Bitmap image, String model, int width, boolean rotate) throws Exception {
         Bitmap horizontal = image;
-        if (image.getHeight() > image.getWidth() * 0.8f) {
+        if (rotate) {
             Matrix rotation = new Matrix();
             rotation.postRotate(-90);
             horizontal = Bitmap.createBitmap(image, 0, 0, image.getWidth(), image.getHeight(), rotation, true);

@@ -48,6 +48,8 @@ public final class MainActivity extends FragmentActivity {
     private DocumentViewModel document;
     private PageView pageView;
     private EditText resultText;
+    private Button modelButton;
+    private String[] modelChoices, shortModelChoices;
     private CameraPreview preview;
     private Toolbar toolbar;
     private int pageTextSize = 14;
@@ -128,6 +130,13 @@ public final class MainActivity extends FragmentActivity {
                 .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE).build()));
         findViewById(R.id.permission_button).setOnClickListener(view -> requestCamera());
         findViewById(R.id.shutter).setOnClickListener(view -> capture());
+        modelButton = findViewById(R.id.ocr_model_button);
+        String[] detectorNames = getResources().getStringArray(R.array.detection_models);
+        modelChoices = new String[detectorNames.length + 1];
+        modelChoices[0] = getString(R.string.ocr_model_auto);
+        System.arraycopy(detectorNames, 0, modelChoices, 1, detectorNames.length);
+        shortModelChoices = getResources().getStringArray(R.array.ocr_model_short_names);
+        modelButton.setOnClickListener(view -> showOcrModels());
         findViewById(R.id.read_button).setOnClickListener(view -> { if (document.busy) document.cancel(); else document.read(); });
         findViewById(R.id.copy_button).setOnClickListener(view -> copy());
         back = new OnBackPressedCallback(true) {
@@ -201,6 +210,16 @@ public final class MainActivity extends FragmentActivity {
             readButton.setImageResource(document.busy ? R.drawable.ic_close : R.drawable.ic_refresh);
             String readAction = getString(document.busy ? R.string.cancel : hasText ? R.string.reread : R.string.read);
             readButton.setContentDescription(readAction); readButton.setTooltipText(readAction);
+            OcrSettings.Selection model = document.ocrSelection();
+            int modelIndex = model.automatic() ? 0 : model.model().ordinal() + 1;
+            String modelButtonText = getString(R.string.ocr_model_control, shortModelChoices[modelIndex]);
+            if (!modelButtonText.contentEquals(modelButton.getText())) {
+                modelButton.setText(modelButtonText);
+                modelButton.setContentDescription(getString(R.string.ocr_model_description, modelChoices[modelIndex]));
+                modelButton.setTooltipText(modelButton.getContentDescription());
+            }
+            modelButton.setEnabled(!document.busy);
+            modelButton.setAlpha(document.busy ? .4f : 1f);
             findViewById(R.id.copy_button).setEnabled(!document.busy && !document.text.isBlank());
             findViewById(R.id.copy_button).setAlpha(!document.busy && !document.text.isBlank() ? 1f : .4f);
         } else {
@@ -213,6 +232,20 @@ public final class MainActivity extends FragmentActivity {
                 document.status = "";
             }
         }
+    }
+
+    private void showOcrModels() {
+        if (document.busy || document.page == null) return;
+        OcrSettings.Selection selected = document.ocrSelection();
+        int checked = selected.automatic() ? 0 : selected.model().ordinal() + 1;
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.detection_model)
+                .setSingleChoiceItems(modelChoices, checked, (dialog, which) -> {
+                    dialog.dismiss();
+                    document.setOcrModel(which == 0, which == 0 ? selected.model() : OcrSettings.Model.values()[which - 1]);
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     private void showExtractionOptions() {
